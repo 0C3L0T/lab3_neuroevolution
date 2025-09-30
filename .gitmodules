@@ -1,0 +1,3 @@
+[submodule "ariel"]
+	path = ariel
+	url = git@github.com:ci-group/ariel.git
