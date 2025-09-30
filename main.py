@@ -1,38 +1,39 @@
-"""Assignment 3 template code."""
 
-# Standard library
+## Standard library
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-# Third-party libraries
-import matplotlib.pyplot as plt
+## Third party libraries
 import mujoco as mj
 import numpy as np
 import numpy.typing as npt
 from mujoco import viewer
 
-# Local libraries
-from ariel.body_phenotypes.robogen_lite.constructor import (
-    construct_mjspec_from_graph,
-)
+## Local libraries
+from ariel.utils.tracker import Tracker
+from ariel.simulation.environments import OlympicArena
+from ariel.simulation.controllers.controller import Controller
+from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import (
     HighProbabilityDecoder,
     save_graph_as_json,
 )
-from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
-from ariel.simulation.controllers.controller import Controller
-from ariel.simulation.environments import OlympicArena
+from ariel.body_phenotypes.robogen_lite.constructor import (
+    construct_mjspec_from_graph,
+)
 from ariel.utils.renderers import single_frame_renderer, video_renderer
-from ariel.utils.runners import simple_runner
-from ariel.utils.tracker import Tracker
 from ariel.utils.video_recorder import VideoRecorder
+from ariel.utils.runners import simple_runner
+
+from controllers import nn_controller, random_move
 
 # Type Checking
 if TYPE_CHECKING:
     from networkx import DiGraph
 
-# Type Aliases
-type ViewerTypes = Literal["launcher", "video", "simple", "no_control", "frame"]
+# Magic Numbers
+NUM_BODY_MODULES = 20
+GENOTYPE_SIZE = 64
 
 # --- RANDOM GENERATOR SETUP --- #
 SEED = 42
@@ -44,81 +45,9 @@ CWD = Path.cwd()
 DATA = CWD / "__data__" / SCRIPT_NAME
 DATA.mkdir(exist_ok=True)
 
-# NDE = read_NDE_from_file()
-# if not NDE, create and store (singleton)
-
-
-def show_xpos_history(history: list[float]) -> None:
-    # Convert list of [x,y,z] positions to numpy array
-    pos_data = np.array(history)
-
-    # Create figure and axis
-    plt.figure(figsize=(10, 6))
-
-    # Plot x,y trajectory
-    plt.plot(pos_data[:, 0], pos_data[:, 1], "b-", label="Path")
-    plt.plot(pos_data[0, 0], pos_data[0, 1], "go", label="Start")
-    plt.plot(pos_data[-1, 0], pos_data[-1, 1], "ro", label="End")
-    plt.plot(0, 0, "kx", label="Origin")
-
-    # Add labels and title
-    plt.xlabel("X Position")
-    plt.ylabel("Y Position")
-    plt.title("Robot Path in XY Plane")
-    plt.legend()
-    plt.grid(visible=True)
-
-    # Set equal aspect ratio and center at (0,0)
-    plt.axis("equal")
-
-    # Show results
-    plt.show()
-
-
-def random_move(
-    model: mj.MjModel,
-    data: mj.MjData,
-) -> npt.NDArray[np.float64]:
-    # Get the number of joints
-    num_joints = model.nu
-
-    # Hinges take values between -pi/2 and pi/2
-    hinge_range = np.pi / 2
-    return RNG.uniform(
-        low=-hinge_range,  # -pi/2
-        high=hinge_range,  # pi/2
-        size=num_joints,
-    ).astype(np.float64)
-
-
-def nn_controller(
-    model: mj.MjModel,
-    data: mj.MjData,
-) -> npt.NDArray[np.float64]:
-    # Simple 3-layer neural network
-    input_size = len(data.qpos)
-    hidden_size = 8
-    output_size = model.nu
-
-    # Initialize the networks weights randomly
-    # Normally, you would use the genes of an individual as the weights,
-    # Here we set them randomly for simplicity.
-    w1 = RNG.normal(loc=0.0138, scale=0.5, size=(input_size, hidden_size))
-    w2 = RNG.normal(loc=0.0138, scale=0.5, size=(hidden_size, hidden_size))
-    w3 = RNG.normal(loc=0.0138, scale=0.5, size=(hidden_size, output_size))
-
-    # Get inputs, in this case the positions of the actuator motors (hinges)
-    inputs = data.qpos
-
-    # Run the inputs through the lays of the network.
-    layer1 = np.tanh(np.dot(inputs, w1))
-    layer2 = np.tanh(np.dot(layer1, w2))
-    outputs = np.tanh(np.dot(layer2, w3))
-
-    # Scale the outputs
-    return outputs * np.pi
-
-
+# TODO put this in its own file
+# Type Aliases
+type ViewerTypes = Literal["launcher", "video", "simple", "no_control", "frame"]
 def experiment(
     robot: Any,
     controller: Controller,
@@ -202,15 +131,10 @@ def experiment(
 
 def main() -> None:
     """Entry point."""
-    # ? ------------------------------------------------------------------ #
-    # System parameters
-    num_modules = 20
 
-    # ? ------------------------------------------------------------------ #
-    genotype_size = 64
-    type_p_genes = RNG.random(genotype_size).astype(np.float32)
-    conn_p_genes = RNG.random(genotype_size).astype(np.float32)
-    rot_p_genes = RNG.random(genotype_size).astype(np.float32)
+    type_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
+    conn_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
+    rot_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
 
     genotype = [
         type_p_genes,
@@ -218,11 +142,11 @@ def main() -> None:
         rot_p_genes,
     ]
 
-    nde = NeuralDevelopmentalEncoding(number_of_modules=num_modules)
+    nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
     p_matrices = nde.forward(genotype)
 
     # Decode the high-probability graph
-    hpd = HighProbabilityDecoder(num_modules)
+    hpd = HighProbabilityDecoder(NUM_BODY_MODULES)
     robot_graph: DiGraph[Any] = hpd.probability_matrices_to_graph(
         p_matrices[0],
         p_matrices[1],
@@ -233,7 +157,7 @@ def main() -> None:
     # Save the graph to a file
     save_graph_as_json(
         robot_graph,
-        DATA / "robot_graph.json",
+        "robot_graph.json",
     )
 
     # ? ------------------------------------------------------------------ #
@@ -251,17 +175,15 @@ def main() -> None:
     # ? ------------------------------------------------------------------ #
     # Simulate the robot
     ctrl = Controller(
-        controller_callback_function=nn_controller,
-        # controller_callback_function=random_move,
+        # controller_callback_function=nn_controller,
+        controller_callback_function=random_move,
         tracker=tracker,
     )
 
-    experiment(robot=core, controller=ctrl, mode="launcher")
+    # experiment(robot=core, controller=ctrl, mode="launcher")
 
     # show_xpos_history(tracker.history["xpos"][0])
 
 
 if __name__ == "__main__":
     main()
-    # for i in range(1000):
-    #     main()
