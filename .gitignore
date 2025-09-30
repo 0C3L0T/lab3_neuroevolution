@@ -1,1 +1,4 @@
 .vscode/
+
+__data__/
+MUJOCO_LOG.TXT
