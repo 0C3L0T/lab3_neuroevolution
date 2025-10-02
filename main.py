@@ -10,6 +10,7 @@ import torch
 from ariel.simulation.controllers.controller import Controller
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
+from mujoco import viewer
 
 from individual import (
     Individual,
@@ -56,12 +57,7 @@ def init_population(
         hpd: HighProbabilityDecoder,
         population_size: int,
         ) -> Population:
-
-    population = []
-    for _ in range(population_size):
-        population.append(create_individual_body(nde, hpd))
-
-    return population
+    return [create_individual_body(nde, hpd) for _ in range(population_size)]
 
 def load_population(location: Path) -> Population | None:
     """
@@ -131,6 +127,8 @@ def main() -> None:
         update_training_status(status)
 
     # here we can run an interactive window with the best individual
+    # This opens a liver viewer of the simulation
+    # viewer.launch(model=model, data=data)
 
 
     # show_xpos_history(tracker.history["xpos"][0])
