@@ -1,31 +1,32 @@
-
 ## Standard library
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, List
 
 ## Third party libraries
-import mujoco as mj
 import numpy as np
-import numpy.typing as npt
-from mujoco import viewer
+import torch
 
 ## Local libraries
-from ariel.utils.tracker import Tracker
-from ariel.simulation.environments import OlympicArena
 from ariel.simulation.controllers.controller import Controller
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
-from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import (
-    HighProbabilityDecoder,
-    save_graph_as_json,
-)
-from ariel.body_phenotypes.robogen_lite.constructor import (
-    construct_mjspec_from_graph,
-)
-from ariel.utils.renderers import single_frame_renderer, video_renderer
-from ariel.utils.video_recorder import VideoRecorder
-from ariel.utils.runners import simple_runner
+from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
 
-from controllers import nn_controller, random_move
+from individual import (
+    Individual,
+    Genome,
+    Fitness,
+    create_individual,
+    create_individual_body,
+    initialize_individual_brain,
+    train_individual,
+)
+
+from status import (
+    Status,
+    display_training_status,
+    load_training_status,
+    update_training_status
+)
 
 # Type Checking
 if TYPE_CHECKING:
@@ -33,154 +34,104 @@ if TYPE_CHECKING:
 
 # Magic Numbers
 NUM_BODY_MODULES = 20
-GENOTYPE_SIZE = 64
 
 # --- RANDOM GENERATOR SETUP --- #
 SEED = 42
 RNG = np.random.default_rng(SEED)
 
 # --- DATA SETUP ---
+from pathlib import Path
 SCRIPT_NAME = __file__.split("/")[-1][:-3]
 CWD = Path.cwd()
 DATA = CWD / "__data__" / SCRIPT_NAME
 DATA.mkdir(exist_ok=True)
 
-# TODO put this in its own file
-# Type Aliases
-type ViewerTypes = Literal["launcher", "video", "simple", "no_control", "frame"]
-def experiment(
-    robot: Any,
-    controller: Controller,
-    duration: int = 15,
-    mode: ViewerTypes = "viewer",
-) -> None:
-    """Run the simulation with random movements."""
-    # ==================================================================== #
-    # Initialise controller to controller to None, always in the beginning.
-    mj.set_mjcb_control(None)  # DO NOT REMOVE
+# TODO: global load/store mechanism
 
-    # Initialise world
-    # Import environments from ariel.simulation.environments
-    world = OlympicArena()
+# --- CUSTOM TYPES --- #
+type Population = List[Individual]
 
-    # Spawn robot in the world
-    # Check docstring for spawn conditions
-    world.spawn(robot.spec, spawn_position=[0, 0, 0.1])
+def init_population(
+        nde: NeuralDevelopmentalEncoding,
+        hpd: HighProbabilityDecoder,
+        population_size: int,
+        ) -> Population:
 
-    # Generate the model and data
-    # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
-    model = world.spec.compile()
-    data = mj.MjData(model)
+    population = []
+    for _ in range(population_size):
+        population.append(create_individual_body(nde, hpd))
 
-    # Reset state and time of simulation
-    mj.mj_resetData(model, data)
+    return population
 
-    # Pass the model and data to the tracker
-    if controller.tracker is not None:
-        controller.tracker.setup(world.spec, data)
+def load_population(location: Path) -> Population | None:
+    """
+    return population from specified location, or None if not available
+    """
+    # Some try/catch logic
 
-    # Set the control callback function
-    # This is called every time step to get the next action.
-    args: list[Any] = []  # IF YOU NEED MORE ARGUMENTS ADD THEM HERE!
-    kwargs: dict[Any, Any] = {}  # IF YOU NEED MORE ARGUMENTS ADD THEM HERE!
-
-    mj.set_mjcb_control(
-        lambda m, d: controller.set_control(m, d, *args, **kwargs),
-    )
-
-    # ------------------------------------------------------------------ #
-    match mode:
-        case "simple":
-            # This disables visualisation (fastest option)
-            simple_runner(
-                model,
-                data,
-                duration=duration,
-            )
-        case "frame":
-            # Render a single frame (for debugging)
-            save_path = str(DATA / "robot.png")
-            single_frame_renderer(model, data, save=True, save_path=save_path)
-        case "video":
-            # This records a video of the simulation
-            path_to_video_folder = str(DATA / "videos")
-            video_recorder = VideoRecorder(output_folder=path_to_video_folder)
-
-            # Render with video recorder
-            video_renderer(
-                model,
-                data,
-                duration=duration,
-                video_recorder=video_recorder,
-            )
-        case "launcher":
-            # This opens a liver viewer of the simulation
-            viewer.launch(
-                model=model,
-                data=data,
-            )
-        case "no_control":
-            # If mj.set_mjcb_control(None), you can control the limbs manually.
-            mj.set_mjcb_control(None)
-            viewer.launch(
-                model=model,
-                data=data,
-            )
-    # ==================================================================== #
-
+def store_population(location: Path, population: Population) -> None:
+    """
+    store population on disk at location
+    """
+    # some try/catch logic
 
 def main() -> None:
-    """Entry point."""
-
-    type_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
-    conn_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
-    rot_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
-
-    genotype = [
-        type_p_genes,
-        conn_p_genes,
-        rot_p_genes,
-    ]
-
+    POPULATION_SIZE = 8
+    
+    # init the NDE and HPD
     nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
-    p_matrices = nde.forward(genotype)
+    hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
 
-    # Decode the high-probability graph
-    hpd = HighProbabilityDecoder(NUM_BODY_MODULES)
-    robot_graph: DiGraph[Any] = hpd.probability_matrices_to_graph(
-        p_matrices[0],
-        p_matrices[1],
-        p_matrices[2],
-    )
+    # Load or initialize population bodies
+    population = load_population()
+    if not population:
+        population = init_population(nde, hpd, POPULATION_SIZE)
+        store_population(population)
 
-    # ? ------------------------------------------------------------------ #
-    # Save the graph to a file
-    save_graph_as_json(
-        robot_graph,
-        "robot_graph.json",
-    )
+    # Load or initialize population brains
+        # The brains need to be stored together with the bodies that they belong to
+        # maybe even as we init the bodies
 
-    # ? ------------------------------------------------------------------ #
-    # Print all nodes
-    core = construct_mjspec_from_graph(robot_graph)
 
-    # ? ------------------------------------------------------------------ #
-    mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
-    name_to_bind = "core"
-    tracker = Tracker(
-        mujoco_obj_to_find=mujoco_type_to_find,
-        name_to_bind=name_to_bind,
-    )
+    # TODO: Keep track of trainings status
+    status: Status = load_training_status()
 
-    # ? ------------------------------------------------------------------ #
-    # Simulate the robot
-    ctrl = Controller(
-        # controller_callback_function=nn_controller,
-        controller_callback_function=random_move,
-        tracker=tracker,
-    )
+    for _ in range(status.desired_body_iterations - status.current_body_iteration):
 
-    # experiment(robot=core, controller=ctrl, mode="launcher")
+        # train the brains
+        for individual in population:
+            # initialize brain (controller specific)
+            # in the NN case, every body gets a custom controller
+            # here i'm assuming the brain is a Tensor
+            initialize_individual_brain(individual)
+
+            # train brain (controller specific)
+                # every individual NN controller gets trained
+            train_individual(individual)
+
+        # select winners
+            # this is just the ones with highest fitness
+            # do we remove some and replace with new ones?
+        
+        # sort population in descending order (highest first)
+        population = population.sort(key=lambda ind: ind.fitness, reverse=True)
+
+        # replace lowest individual?
+        population[-1] = create_individual(nde, hpd)
+
+        # mutate/crossover bodies
+            # this is why we need to store the Genome in the Individual
+            # also don't know if we want to do this manually or not
+
+        store_population(population)
+
+        # update status
+        display_training_status(status)
+        status.current_body_iteration += 1
+        update_training_status(status)
+
+    # here we can run an interactive window with the best individual
+
 
     # show_xpos_history(tracker.history["xpos"][0])
 
