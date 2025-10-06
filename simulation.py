@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Literal
 from ariel.simulation.environments import OlympicArena
 from ariel.simulation.controllers.controller import Controller
+from evotorch import Problem
 import mujoco as mj
 from ariel.utils.runners import simple_runner
 
@@ -16,13 +17,55 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
 # --- DATA SETUP ---
 from pathlib import Path
 
-from controller import random_move
-from individual import Individual
+from individual import Fitness, Individual
+
 SCRIPT_NAME = __file__.split("/")[-1][:-3]
 CWD = Path.cwd()
 DATA = CWD / "__data__" / SCRIPT_NAME
 DATA.mkdir(exist_ok=True)
 
+def evaluate_individual(individual: Individual) -> Fitness:
+    '''
+    this would probably entail submitting the individual to
+    a simulation runtime-thingy
+
+    TODO:
+        - spawn in 3 different locations
+        - do abortion check
+        - run simulation
+        - evaluate fitness (distance)
+    '''
+    core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
+    
+    mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
+    name_to_bind = "core"
+
+    # not sure what this does
+    tracker = Tracker(
+        mujoco_obj_to_find=mujoco_type_to_find,
+        name_to_bind=name_to_bind,
+    )
+    
+    ctrl = Controller(
+        controller_callback_function=individual.controller_callback,
+        tracker=tracker,
+    )
+
+    run_simulation(individual, ctrl, core)
+
+    return 0.0
+
+def train_individual(individual: Individual) -> None:
+    '''
+    this is where we use evotorch Problem and CMA-ES
+    assuming here that the brain is a Tensor
+    '''
+    problem = Problem(
+        "max",
+
+    )
+
+    return None
 
 def run_simulation(
         individual: Individual,
