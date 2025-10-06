@@ -1,5 +1,6 @@
 ## Standard library
 from dataclasses import dataclass
+import random
 from typing import TYPE_CHECKING, Any, List
 
 ## Third party libraries
@@ -20,6 +21,7 @@ from individual import (
     store_individual,
 )
 
+from simulation import train_individual
 from status import (
     Status,
     display_training_status,
@@ -77,9 +79,6 @@ def load_population(status: Status) -> Population | None:
     return population or None
 
 
-def load_population_from_file(status: Status):
-    pass
-
 def store_population(status: Status, population: Population) -> None:
     """
     store population on disk at location
@@ -91,6 +90,26 @@ def store_population(status: Status, population: Population) -> None:
 
     for individual in population:
         store_individual(dir_path=checkpoint_dir, individual=individual)
+
+
+def tournament_selection(
+        parent_population: Population,
+        nr_children: int,
+        arena_size: int
+        ) -> Population:
+    children_population = []
+
+    for _ in range(nr_children):
+        # take random individuals
+        arena = random.sample(parent_population, arena_size)
+
+        # sort by fitness (fittest first)        
+        arena.sort(key=lambda ind: ind.fitness, reverse=True)
+
+        # Add best to children
+        children_population.append(arena[0])
+    
+    return children_population
 
 BODY_GRAPH_DIR = DATA / "bodies"
 def store_individual_body_graph(individual: Individual) -> None:
@@ -140,21 +159,14 @@ def main() -> None:
             # initialize brain (controller specific)
             # in the NN case, every body gets a custom controller
             # here i'm assuming the brain is a Tensor
-            initialize_individual_brain(individual)
+            # TODO
 
             # train brain (controller specific)
                 # every individual NN controller gets trained
             train_individual(individual)
 
-        # select winners
-            # this is just the ones with highest fitness
-            # do we remove some and replace with new ones?
-        
-        # sort population in descending order (highest first)
-        population = population.sort(key=lambda ind: ind.fitness, reverse=True)
-
-        # replace lowest individual?
-        population[-1] = create_individual(nde, hpd)
+        # select children, do we replace the ones we kill with new ones?
+        children = tournament_selection(population, POPULATION_SIZE - 1)
 
         # mutate/crossover bodies
             # this is why we need to store the Genome in the Individual
@@ -167,11 +179,14 @@ def main() -> None:
         status.current_body_iteration += 1
         store_training_status(status)
 
-    # here we can run an interactive window with the best individual
-    # This opens a liver viewer of the simulation
-    # viewer.launch(model=model, data=data)
-    # save body as JSON
+    fittest: Individual = population.sort(key=lambda ind: ind.fitness, reverse=True)[0]
 
+    # save body as JSON
+    store_individual_body_graph(fittest)
+
+    # here we can run an interactive window with the best individual
+    # This opens a live viewer of the simulation
+    # viewer.launch(model=model, data=data)
 
     # show_xpos_history(tracker.history["xpos"][0])
 
