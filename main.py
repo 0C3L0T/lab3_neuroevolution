@@ -1,37 +1,27 @@
 ## Standard library
-from dataclasses import dataclass
 import random
-from typing import TYPE_CHECKING, Any, List
+from typing import List
 
 ## Third party libraries
 import numpy as np
-import torch
 
 ## Local libraries
-from ariel.simulation.controllers.controller import Controller
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
-from mujoco import viewer
 
 from individual import (
     Individual,
-    Genome,
-    Fitness,
     load_individual,
     store_individual,
 )
 
-from simulation import train_individual
+from simulation import show_individual_in_window, train_individual
 from status import (
     Status,
     display_training_status,
     load_training_status,
     store_training_status
 )
-
-# Type Checking
-if TYPE_CHECKING:
-    from networkx import DiGraph
 
 # Magic Numbers
 NUM_BODY_MODULES = 20
@@ -46,8 +36,6 @@ SCRIPT_NAME = __file__.split("/")[-1][:-3]
 CWD = Path.cwd()
 DATA = CWD / "__data__" / SCRIPT_NAME
 DATA.mkdir(exist_ok=True)
-
-# TODO: global load/store mechanism
 
 # --- CUSTOM TYPES --- #
 type Population = List[Individual]
@@ -111,6 +99,18 @@ def tournament_selection(
     
     return children_population
 
+def mutate_population(population: Population) -> Population:
+    '''
+    TODO
+    '''
+    pass
+
+def crossover_population(population: Population) -> Population:
+    '''
+    TODO
+    '''
+    pass
+
 BODY_GRAPH_DIR = DATA / "bodies"
 def store_individual_body_graph(individual: Individual) -> None:
     '''
@@ -151,7 +151,6 @@ def main() -> None:
         # maybe even as we init the bodies
         # currently the bodies are already stored with brains
 
-
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
 
         # train the brains
@@ -167,10 +166,13 @@ def main() -> None:
 
         # select children, do we replace the ones we kill with new ones?
         children = tournament_selection(population, POPULATION_SIZE - 1)
+        children.append(Individual(id=POPULATION_SIZE, nde=nde, hpd=hpd))
 
         # mutate/crossover bodies
             # this is why we need to store the Genome in the Individual
             # also don't know if we want to do this manually or not
+        mutate_population(population)
+        crossover_population(population)
 
         store_population(population)
 
@@ -184,10 +186,10 @@ def main() -> None:
     # save body as JSON
     store_individual_body_graph(fittest)
 
-    # here we can run an interactive window with the best individual
-    # This opens a live viewer of the simulation
-    # viewer.launch(model=model, data=data)
+    # open an ariel window displaying fittest
+    show_individual_in_window(fittest)
 
+    # some more visualisation?
     # show_xpos_history(tracker.history["xpos"][0])
 
 

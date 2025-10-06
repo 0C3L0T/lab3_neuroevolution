@@ -10,6 +10,7 @@ from ariel.body_phenotypes.robogen_lite.modules.core import CoreModule
 from ariel.body_phenotypes.robogen_lite.modules.hinge import HingeModule
 
 from ariel.utils.tracker import Tracker
+from mujoco import viewer
 from ariel.body_phenotypes.robogen_lite.constructor import (
     construct_mjspec_from_graph,
 )
@@ -23,6 +24,12 @@ SCRIPT_NAME = __file__.split("/")[-1][:-3]
 CWD = Path.cwd()
 DATA = CWD / "__data__" / SCRIPT_NAME
 DATA.mkdir(exist_ok=True)
+
+
+def show_individual_in_window(individual: Individual) -> None:
+    # This opens a live viewer of the simulation
+    viewer.launch(model=model, data=data)
+    pass
 
 def evaluate_individual(individual: Individual) -> Fitness:
     '''
