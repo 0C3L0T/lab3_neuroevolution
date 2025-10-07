@@ -39,11 +39,6 @@ DATA.mkdir(exist_ok=True)
 type Genome = List[np.float32]
 type Fitness = float
 
-'''
-TODO
-- can we use the built-in Individual class?
-- write constructor, or keep imperative? 
-'''
 class Individual:
     id: int
     genome: Genome
@@ -66,6 +61,9 @@ class Individual:
         # figure out model input/ouput
             # is there a way to get these without initialising mujoco?
         n_joints = count_joints_in_body(self.body_graph)
+
+        # add two input neurons for veolcity and acceleration?
+        input_size = n_joints + 2
         
         # init NN
         self.network = None
