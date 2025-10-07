@@ -1,14 +1,11 @@
 
 ## Standard library
-import json
+from pathlib import Path
 import pickle
-from typing import TYPE_CHECKING, Callable, List, Tuple
+from typing import Callable, List 
 
 ## Third party libraries
-from ariel.body_phenotypes.robogen_lite.constructor import construct_mjspec_from_graph
 from ariel.body_phenotypes.robogen_lite.modules.core import CoreModule
-from ariel.utils.tracker import Tracker
-import mujoco as mj
 import numpy as np
 import torch
 import networkx as nx
@@ -26,15 +23,6 @@ GENOTYPE_SIZE = 64
 # --- RANDOM GENERATOR SETUP --- #
 SEED = 42
 RNG = np.random.default_rng(SEED)
-
-# --- DATA SETUP ---
-from pathlib import Path
-SCRIPT_NAME = __file__.split("/")[-1][:-3]
-CWD = Path.cwd()
-DATA = CWD / "__data__" / SCRIPT_NAME
-DATA.mkdir(exist_ok=True)
-
-# TODO: global load/store mechanism
 
 type Genome = List[np.float32]
 type Fitness = float
