@@ -2,20 +2,18 @@
 ## Standard library
 from pathlib import Path
 import pickle
-from typing import Callable, List 
+from typing import List 
 
 ## Third party libraries
-from ariel.body_phenotypes.robogen_lite.modules.core import CoreModule
 import numpy as np
-import torch
 import networkx as nx
+from networkx.readwrite import json_graph
 
 ## Local libraries
-from ariel.simulation.controllers.controller import Controller
-from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
+from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 
-from networkx.readwrite import json_graph
+from CPG import CPG
 
 # MAGIC NUMBERS
 GENOTYPE_SIZE = 64
@@ -31,10 +29,8 @@ class Individual:
     id: int
     genome: Genome
     body_graph: nx.DiGraph
-    network: torch.nn
-    weights: torch.Tensor
     fitness: Fitness = 0
-    controller_callback: Callable
+    cpg: CPG
 
     def __init__(
             self,
@@ -46,29 +42,26 @@ class Individual:
         self.genome = create_genome()
         self.body_graph = create_body_graph(nde, hpd, self.genome)
 
-        # figure out model input/ouput
-            # is there a way to get these without initialising mujoco?
         n_joints = count_joints_in_body(self.body_graph)
 
-        # add two input neurons for veolcity and acceleration?
-        input_size = n_joints + 2
-        
-        # init NN
-        self.network = None
-        self.weights = None
-        self.controller_callback = None
+        # TODO find sensible defaults, do we store these parameters in Individual?
+        self.cpg = CPG(
+            n_hinges=n_joints,
+            alpha=10.0,
+            mu=1.0,
+            omega=2*np.pi,
+            coupling=0.1
+        )
 
-        # init weights
-    
     def __str__(self) -> str:
         return (
             f"Individual(id={self.id}, "
             f"genome={type(self.genome).__name__}, "
+            f"fitness={self.fitness}, "
             f"nodes={len(self.body_graph.nodes)}, "
             f"edges={len(self.body_graph.edges)}, "
-            f"network={self.network.__class__.__name__}, "
+            # f"network={self.network.__class__.__name__}, "
             # f"weights_shape={tuple(self.weights.shape)}, "
-            f"fitness={self.fitness}, "
             # f"controller_callback={self.controller_callback.__name__ if hasattr(self.controller_callback, '__name__') else type(self.controller_callback).__name__})"
         )
 
