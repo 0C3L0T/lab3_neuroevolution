@@ -120,9 +120,8 @@ def create_body_graph(
 
 def count_joints_in_body(body_graph: nx.DiGraph) -> int:
     data = json_graph.node_link_data(body_graph, edges="edges")
-    json_string = json.dumps(data, indent=4)
 
-    nodes = json_string.get("nodes", [])
+    nodes = data.get("nodes", [])
     return sum(1 for node in nodes if node.get("type") == "HINGE")
 
 def load_individual(path: Path) -> Individual:
