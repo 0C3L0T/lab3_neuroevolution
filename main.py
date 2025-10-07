@@ -26,7 +26,7 @@ from status import (
 )
 
 # Magic Numbers
-NUM_BODY_MODULES = 20
+NUM_BODY_MODULES = 20  # they've changed this to 30 in the template now
 NUM_BRAIN_ACTORS = os.cpu_count()
 NUM_BODY_ACTORS = 2
 BODY_POPULATION_SIZE = 8
@@ -173,7 +173,6 @@ def main() -> None:
     
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
         population = train_population(population, max_workers=NUM_BODY_ACTORS)
-        return
 
         # select children, do we replace the ones we kill with new ones?
         # NOTE: when loading population from file, black box will be re-initialized
