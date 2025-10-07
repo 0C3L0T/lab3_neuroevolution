@@ -1,7 +1,8 @@
 
 ## Standard library
+import json
 import pickle
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable, List, Tuple
 
 ## Third party libraries
 from ariel.body_phenotypes.robogen_lite.constructor import construct_mjspec_from_graph
@@ -17,6 +18,7 @@ from ariel.simulation.controllers.controller import Controller
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
 
+from networkx.readwrite import json_graph
 
 # MAGIC NUMBERS
 GENOTYPE_SIZE = 64
@@ -63,6 +65,7 @@ class Individual:
 
         # figure out model input/ouput
             # is there a way to get these without initialising mujoco?
+        n_joints = count_joints_in_body(self.body_graph)
         
         # init NN
         self.network = None
@@ -117,6 +120,13 @@ def create_body_graph(
 
     return robot_graph
 
+def count_joints_in_body(body_graph: nx.DiGraph) -> int:
+    data = json_graph.node_link_data(body_graph, edges="edges")
+    json_string = json.dumps(data, indent=4)
+
+    nodes = json_string.get("nodes", [])
+    return sum(1 for node in nodes if node.get("type") == "HINGE")
+
 def load_individual(path: Path) -> Individual:
     '''
     unpickle an Individual, assume path exists
@@ -131,19 +141,21 @@ def store_individual(dir_path: Path, individual: Individual) -> None:
     with open(f"{dir_path}/{individual.id}.pkl", "wb") as f:
         pickle.dump(individual, f)
         
+    
 
 def main():
     hpd = HighProbabilityDecoder(20)
     nde = NeuralDevelopmentalEncoding(20)
     i: Individual = Individual(hpd=hpd, nde=nde, id=0)
 
-    store_individual(".", i)
-    i2 = load_individual("0.pkl")
 
-    Path("0.pkl").unlink()
+    # store_individual(".", i)
+    # i2 = load_individual("0.pkl")
 
-    print(i)
-    print(i2)
+    # Path("0.pkl").unlink()
+
+    # print(i)
+    # print(i2)
 
 if __name__ == "__main__":
     main()
