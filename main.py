@@ -110,13 +110,15 @@ def mutate_population(population: Population) -> Population:
     '''
     TODO
     '''
-    pass
+
+    return population
+    #pass
 
 def crossover_population(population: Population) -> Population:
     '''
     TODO
     '''
-    pass
+    return population
 
 def store_individual_body_graph(individual: Individual) -> None:
     '''
