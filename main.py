@@ -1,4 +1,6 @@
 ## Standard library
+from concurrent.futures import ProcessPoolExecutor
+import os
 import random
 from typing import List
 
@@ -25,6 +27,11 @@ from status import (
 
 # Magic Numbers
 NUM_BODY_MODULES = 20
+NUM_BRAIN_ACTORS = os.cpu_count()
+NUM_BODY_ACTORS = 2
+BODY_POPULATION_SIZE = 8
+BRAIN_POPULATION_SIZE = 24
+DEFAULT_BODY_ITERATIONS = 100
 
 # --- RANDOM GENERATOR SETUP --- #
 SEED = 42
@@ -111,18 +118,34 @@ def crossover_population(population: Population) -> Population:
     '''
     pass
 
-BODY_GRAPH_DIR = DATA / "bodies"
 def store_individual_body_graph(individual: Individual) -> None:
     '''
-    thie stores the body graph as JSON, needed for handin
+    thie stores the body graph as JSON, needed for hand-in
     '''
-    save_graph_as_json(
+    return save_graph_as_json(
         individual.body_graph,
-        BODY_GRAPH_DIR + str(individual.id)
+        "THE_BADDEST_BITCH.json"
     )
 
+def train_individual_wrapper(individual: Individual) -> Individual:
+    # each process inits its own Ray cluster
+    import ray
+    if not ray.is_initialized():
+        ray.init(num_cpus=NUM_BRAIN_ACTORS, ignore_reinit_error=True)
+    try:
+        train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
+    finally:
+        ray.shutdown()
+    return individual
+
+
+def train_population(population: Population, max_workers: int) -> Population:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(train_individual_wrapper, population))
+
+    return results
+
 def main() -> None:
-    POPULATION_SIZE = 8
     CHECKPOINT_LOCATION = "checkpoints/"
     STATUS_LOCATION = "training_status.txt"
     
@@ -130,11 +153,11 @@ def main() -> None:
     nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
     hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
 
-    # INIT TRAINING SPECIFICATIONS
+    # load or init training status
     status: Status = load_training_status(STATUS_LOCATION)
     if not status:
         status = Status(
-            desired_body_iterations=100,
+            desired_body_iterations=DEFAULT_BODY_ITERATIONS,
             current_body_iteration=0,
             checkpoint_dir=Path(CHECKPOINT_LOCATION)
         )
@@ -143,37 +166,20 @@ def main() -> None:
     # Load or initialize Population
     population = load_population(status)
     if not population:
-        population = init_population(nde, hpd, POPULATION_SIZE)
+        population = init_population(nde, hpd, BODY_POPULATION_SIZE)
         store_population(status, population)
     
-    # Load or initialize population brains?
-        # The brains need to be stored together with the bodies that they belong to
-        # maybe even as we init the bodies
-        # currently the bodies are already stored with brains
-
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
-
-        # train the brains
-        for individual in population:
-            # initialize brain (controller specific)
-            # in the NN case, every body gets a custom controller
-            # here i'm assuming the brain is a Tensor
-            # TODO
-
-            # train brain (controller specific)
-                # every individual NN controller gets trained
-            train_individual(individual)
+        population = train_population(population, max_workers=NUM_BODY_ACTORS)
+        return
 
         # select children, do we replace the ones we kill with new ones?
-        children = tournament_selection(population, POPULATION_SIZE - 1)
-        children.append(Individual(id=POPULATION_SIZE, nde=nde, hpd=hpd))
+        # NOTE: when loading population from file, black box will be re-initialized
+        children: Population = tournament_selection(population, BODY_POPULATION_SIZE - 1)
+        children.append(Individual(id=BODY_POPULATION_SIZE, nde=nde, hpd=hpd))
 
-        # mutate/crossover bodies
-            # this is why we need to store the Genome in the Individual
-            # also don't know if we want to do this manually or not
         mutate_population(population)
         crossover_population(population)
-
         store_population(population)
 
         # update status
