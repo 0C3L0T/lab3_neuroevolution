@@ -15,8 +15,13 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
     construct_mjspec_from_graph,
 )
 
+from evotorch.algorithms import CMAES
+
 # --- DATA SETUP ---
 from pathlib import Path
+
+import numpy as np
+import torch
 
 from individual import Fitness, Individual
 
@@ -74,6 +79,8 @@ def evaluate_individual(individual: Individual) -> Fitness:
         name_to_bind=name_to_bind,
     )
     
+    # TODO construct callback function from individual NN + weights
+
     ctrl = Controller(
         controller_callback_function=individual.controller_callback,
         tracker=tracker,
@@ -85,18 +92,44 @@ def evaluate_individual(individual: Individual) -> Fitness:
 
     return 0.0
 
-def train_individual(individual: Individual) -> None:
+def train_individual(
+        individual: Individual,
+        population_size: int,
+        num_actors: int
+        ) -> None:
     '''
     this is where we use evotorch Problem and CMA-ES
     assuming here that the brain is a Tensor
+    TODO add termination condition
     '''
-    problem = Problem(
-        "max",
-        objective_func=evaluate_individual()
+    network_in = 8
+    network_out = 6
 
+    xavier_bound = np.sqrt(6 / (network_in + network_out))
+
+    stdev_init = xavier_bound
+    
+    # TODO all neurons in network (in+out+hidden)
+    total_params = 24
+
+    # what is v here?
+    problem = Problem(
+        objective_sense="max",
+        objective_func=lambda v: evaluate_individual(v, individual),
+        solution_length=total_params,
+        initial_bounds=(-xavier_bound, xavier_bound),
+        dtype=torch.float32,
+        num_actors=num_actors
     )
 
-    return None
+    CMAES(
+        problem=problem,
+        popize=population_size,
+        stdev_init=stdev_init
+    )
+
+    # TODO some logging?
+    # TODO store final fitness
 
 def run_simulation(
         individual: Individual,
