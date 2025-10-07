@@ -27,9 +27,30 @@ DATA.mkdir(exist_ok=True)
 
 
 def show_individual_in_window(individual: Individual) -> None:
-    # This opens a live viewer of the simulation
+    '''
+    This opens a live viewer of the simulation
+    '''
+    core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
+    
+    # Initialise controller to controller to None, always in the beginning.
+    mj.set_mjcb_control(None)  # DO NOT REMOVE
+
+    # Initialise world
+    world = OlympicArena()
+
+    # Spawn robot in the world
+    # Check docstring for spawn conditions
+    world.spawn(core.spec, spawn_position=[0, 0, 0.1])
+
+    # Generate the model and data
+    # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
+    model = world.spec.compile()
+    data = mj.MjData(model)
+
+    # Reset state and time of simulation
+    mj.mj_resetData(model, data)
+
     viewer.launch(model=model, data=data)
-    pass
 
 def evaluate_individual(individual: Individual) -> Fitness:
     '''
@@ -60,6 +81,8 @@ def evaluate_individual(individual: Individual) -> Fitness:
 
     run_simulation(individual, ctrl, core)
 
+    # get distance from Tracker?
+
     return 0.0
 
 def train_individual(individual: Individual) -> None:
@@ -69,6 +92,7 @@ def train_individual(individual: Individual) -> None:
     '''
     problem = Problem(
         "max",
+        objective_func=evaluate_individual()
 
     )
 
@@ -83,8 +107,6 @@ def run_simulation(
     '''
     to run a simulation, we only need a body and a controller.
     where we get them from though, that's the question...
-
-    it would be nice if this 
     '''
     # Initialise controller to controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
