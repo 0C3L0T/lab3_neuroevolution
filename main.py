@@ -14,14 +14,17 @@ import mujoco as mj
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
 
-import controllers
 from individual import (
     Individual,
+    create_body_graph,
+    create_genome,
+    get_body_composition,
     load_individual,
     store_individual,
 )
 
 from simulation import show_individual_in_window, train_individual
+
 from status import (
     Status,
     display_training_status,
@@ -67,14 +70,14 @@ def init_nde_hpd():
     GLOBAL_NDE = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
 
 
-def init_individual(individual, id, ControllerClass, genome = None):
+def init_individual(id: int, ControllerClass, genome = None) -> Individual:
     # THIS SHOULD NEVER BE CALLED FROM PROCESS OTHER THAN MAIN
     # Neither should any genome be updated
 
     global GLOBAL_NDE, GLOBAL_HPD
+    individual: Individual = Individual()
     individual.id = id
 
-    from individual import create_genome, create_body_graph,  get_body_composition
 
     if genome:
         individual.genome = genome
@@ -105,22 +108,12 @@ def init_individual(individual, id, ControllerClass, genome = None):
 
 
     individual.controller = ControllerClass(individual.n_inputs, individual.n_outputs)
+    return individual
 
 
-def init_population(
-        #nde: NeuralDevelopmentalEncoding,
-        #hpd: HighProbabilityDecoder,
-        population_size: int,
-        ) -> Population:
+def init_population(population_size: int) -> Population:
 
-    # return [Individual(id, controllers.RandomController) for id in range(population_size)]
-
-    population = []
-    for id in range(population_size):
-        ind = Individual()
-        init_individual(ind, id, controllers.NNController)
-        population.append(ind)
-    return population
+    return [init_individual(id, controllers.NNController) for id in range(population_size)]
 
 def load_population(status: Status) -> Population | None:
     """

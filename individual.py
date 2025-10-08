@@ -1,5 +1,6 @@
 
 ## Standard library
+from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 import pickle
 from typing import List 
@@ -28,93 +29,27 @@ RNG = np.random.default_rng()#SEED)
 type Genome = List[np.float32]
 type Fitness = float
 
+@dataclass
 class Individual:
-    # Individual has a set body, but a variable brain
-    # id: int
-    # # genome = None: Genome
-    # body_graph: nx.DiGraph
-    # controller = None
-    #fitness: Fitness = 0
-    # cpg: CPG
-    id = None
-    genome = None
-    body_graph = None
-    controller = None
-    n_cores = None
-    n_bricks = None
-    n_joints = None
-    n_rots = None
-    n_inputs = None
-    n_outputs = None
+    id: int | None = None
+    genome: Genome | None = None
+    body_graph: nx.DiGraph | None = None
+    controller: any = None
+    n_cores: int | None = None
+    n_bricks: int | None = None
+    n_joints: int | None = None
+    n_rots: int | None = None
+    n_inputs: int | None = None
+    n_outputs: int | None = None
 
-    # def __init__(
-    #         self,
-    #         id: int,
-    #         #nde: NeuralDevelopmentalEncoding,
-    #         #hpd: HighProbabilityDecoder,
-    #         ControllerClass,
-    #         ):
-        # self.id = id
-        #
-        # NUM_OF_MODULES = 30
-        #
-        # from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
-        # from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, \
-        #     save_graph_as_json
-        # genotype_size = 64
-        # type_p_genes = RNG.random(genotype_size).astype(np.float32)
-        # conn_p_genes = RNG.random(genotype_size).astype(np.float32)
-        # rot_p_genes = RNG.random(genotype_size).astype(np.float32)
-        #
-        # self.genotype = [
-        #     type_p_genes,
-        #     conn_p_genes,
-        #     rot_p_genes,
-        # ]
-        #
-        # # nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_OF_MODULES)
-        # p_matrices = nde.forward(self.genotype)
-        #
-        # # Decode the high-probability graph
-        # # hpd = HighProbabilityDecoder(NUM_OF_MODULES)
-        # self.body_graph = hpd.probability_matrices_to_graph(
-        #     p_matrices[0],
-        #     p_matrices[1],
-        #     p_matrices[2],
-        # )
-
-        #self.body_graph = create_body_graph(nde, hpd, self.genome)
-
-        #n_cores =
-        #n_joints = count_joints_in_body(self.body_graph)
-        # self.n_cores, self.n_joints, self.n_bricks, self.n_rots = get_body_composition(self.body_graph)
-        #
-        # # TODO move *6 in ControllerClass
-        # self.controller = ControllerClass(self.n_cores * 6, self.n_joints)
-
-        # TODO find sensible defaults, do we store these parameters in Individual?
-        # self.cpg = CPG(
-        #     n_hinges=n_joints,
-        #     alpha=10.0,
-        #     mu=1.0,
-        #     omega=2*np.pi,
-        #     coupling=0.1
-        # )
-
-
-
-    def __str__(self) -> str:
-        return (
-            f"Individual(id={self.id}, "
-            f"genome={type(self.genome).__name__}, "
-            f"fitness={self.fitness}, "
-            f"nodes={len(self.body_graph.nodes)}, "
-            f"edges={len(self.body_graph.edges)}, "
-            # f"network={self.network.__class__.__name__}, "
-            # f"weights_shape={tuple(self.weights.shape)}, "
-            # f"controller_callback={self.controller_callback.__name__ if hasattr(self.controller_callback, '__name__') else type(self.controller_callback).__name__})"
-        )
-
+def display_individual(individual):
+    """Pretty-print all fields of an Individual dataclass."""
+    assert isinstance(individual, Individual), "Expected an Individual instance"
+    print("── Individual ──")
+    for f in fields(individual):
+        name = f.name
+        value = getattr(individual, name)
+        print(f"{name:>12}: {value}")
 
 def create_genome():
     type_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
@@ -168,24 +103,18 @@ def store_individual(dir_path: Path, individual: Individual) -> None:
     '''
     pickle an Individual, assume the dir path exists
     '''
+    assert is_dataclass(individual) and isinstance(individual, Individual), \
+    "Expected an instance of Individual dataclass"
+
     with open(f"{dir_path}/{individual.id}.pkl", "wb") as f:
         pickle.dump(individual, f)
         
     
-
 def main():
-    hpd = HighProbabilityDecoder(20)
-    nde = NeuralDevelopmentalEncoding(20)
-    i: Individual = Individual(hpd=hpd, nde=nde, id=0)
+    i: Individual = Individual()
+    i.id = 5
 
-
-    # store_individual(".", i)
-    # i2 = load_individual("0.pkl")
-
-    # Path("0.pkl").unlink()
-
-    # print(i)
-    # print(i2)
+    display_individual(i)
 
 if __name__ == "__main__":
     main()
