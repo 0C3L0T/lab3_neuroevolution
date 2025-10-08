@@ -6,11 +6,13 @@ from typing import List
 
 ## Third party libraries
 import numpy as np
+import torch
 
 ## Local libraries
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
 
+import controllers
 from individual import (
     Individual,
     load_individual,
@@ -25,17 +27,25 @@ from status import (
     store_training_status
 )
 
+import controllers
+
+
 # Magic Numbers
-NUM_BODY_MODULES = 20  # they've changed this to 30 in the template now
-NUM_BRAIN_ACTORS = os.cpu_count()
+NUM_BODY_MODULES = 30  # they've changed this to 30 in the template now
+# TODO: make sure to modify this before submitting to AWS
+NUM_BRAIN_ACTORS = 2 #os.cpu_count() // 2
 NUM_BODY_ACTORS = 2
 BODY_POPULATION_SIZE = 8
 BRAIN_POPULATION_SIZE = 24
 DEFAULT_BODY_ITERATIONS = 100
 
 # --- RANDOM GENERATOR SETUP --- #
-SEED = 42
-RNG = np.random.default_rng(SEED)
+
+#SEED = 42
+#RNG = np.random.default_rng(SEED)
+
+GLOBAL_NDE = None
+#GLOBAL_HPD = None
 
 # --- DATA SETUP ---
 from pathlib import Path
@@ -47,17 +57,87 @@ DATA.mkdir(exist_ok=True)
 # --- CUSTOM TYPES --- #
 type Population = List[Individual]
 
+def init_nde_hpd():
+    global GLOBAL_NDE#, GLOBAL_HPD
+    # DO NOT TOUCH, there are issues with passing nde, hpd around parallel
+
+    # init the black box
+    GLOBAL_NDE = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
+    #GLOBAL_HPD  = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
+
+
+def init_individual(individual, id, ControllerClass, genome = None):
+    # THIS SHOULD NEVER BE CALLED FROM PROCESS OTHER THAN MAIN
+    # Neither should any genome be updated
+
+    global GLOBAL_NDE, GLOBAL_HPD
+    individual.id = id
+
+    from individual import create_genome, create_body_graph
+
+    if genome:
+        individual.genome = genome
+    else:
+        individual.genome = create_genome()
+
+    print('testing genome: ', individual.genome[0][0])
+
+    hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
+
+    individual.body_graph = create_body_graph(GLOBAL_NDE, hpd, individual.genome)
+
+    from ariel.body_phenotypes.robogen_lite.constructor import (
+        construct_mjspec_from_graph,
+    )
+    print('testing core generation')
+    #try:
+    test_core = construct_mjspec_from_graph(individual.body_graph)
+    # except:
+    #     print('core failed')
+    # finally:
+    #     break
+
+    print('core generated')
+
+    # #nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_OF_MODULES)
+    # p_matrices = GLOBAL_NDE.forward(individual.genome)
+    #
+    # # Decode the high-probability graph
+    # # hpd = HighProbabilityDecoder(NUM_OF_MODULES)
+    # body_graph = GLOBAL_HPD.probability_matrices_to_graph(
+    #     p_matrices[0],
+    #     p_matrices[1],
+    #     p_matrices[2],
+    # )
+    # individual.body_graph = body_graph
+
+    from individual import get_body_composition
+    n_cores, n_joints, n_bricks, n_rots = get_body_composition(individual.body_graph)
+
+    individual.controller = ControllerClass(n_cores * 6, n_joints)
+
+
 def init_population(
-        nde: NeuralDevelopmentalEncoding,
-        hpd: HighProbabilityDecoder,
+        #nde: NeuralDevelopmentalEncoding,
+        #hpd: HighProbabilityDecoder,
         population_size: int,
         ) -> Population:
-    return [Individual(nde, hpd, id) for id in range(population_size)]
+
+    # return [Individual(id, controllers.RandomController) for id in range(population_size)]
+
+    population = []
+    for id in range(population_size):
+        ind = Individual()
+        init_individual(ind, id, controllers.RandomController)
+        population.append(ind)
+    return population
 
 def load_population(status: Status) -> Population | None:
     """
     load population from a location in status object or none if not available
     """
+
+    print("loading population")
     checkpoint_dir = Path(status.checkpoint_dir)
 
     if not checkpoint_dir.exists():
@@ -130,18 +210,17 @@ def store_individual_body_graph(individual: Individual) -> None:
     )
 
 def train_individual_wrapper(individual: Individual) -> Individual:
-    # each process inits its own Ray cluster
-    import ray
-    if not ray.is_initialized():
-        ray.init(num_cpus=NUM_BRAIN_ACTORS, ignore_reinit_error=True)
-    try:
-        train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
-    finally:
-        ray.shutdown()
+    # EvoTorch inits the Ray clusters
+
+    print('train individual wrapper')
+
+    train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
+
     return individual
 
 
 def train_population(population: Population, max_workers: int) -> Population:
+
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(train_individual_wrapper, population))
 
@@ -150,13 +229,11 @@ def train_population(population: Population, max_workers: int) -> Population:
 def main() -> None:
     CHECKPOINT_LOCATION = "checkpoints/"
     STATUS_LOCATION = "training_status.txt"
-    
-    # init the black box
-    nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
-    hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
+
+    init_nde_hpd()
 
     # load or init training status
-    status: Status = load_training_status(STATUS_LOCATION)
+    status: Status = None#load_training_status(STATUS_LOCATION)
     if not status:
         status = Status(
             desired_body_iterations=DEFAULT_BODY_ITERATIONS,
@@ -166,18 +243,19 @@ def main() -> None:
         store_training_status(status, STATUS_LOCATION)
 
     # Load or initialize Population
-    population = load_population(status)
+    population = None#load_population(status)
     if not population:
-        population = init_population(nde, hpd, BODY_POPULATION_SIZE)
+        population = init_population(BODY_POPULATION_SIZE)
         store_population(status, population)
     
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
+        print('main: train_population')
         population = train_population(population, max_workers=NUM_BODY_ACTORS)
 
         # select children, do we replace the ones we kill with new ones?
         # NOTE: when loading population from file, black box will be re-initialized
         children: Population = tournament_selection(population, BODY_POPULATION_SIZE - 1)
-        children.append(Individual(id=BODY_POPULATION_SIZE, nde=nde, hpd=hpd))
+        children.append(Individual(id=BODY_POPULATION_SIZE))
 
         mutate_population(population)
         crossover_population(population)

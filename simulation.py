@@ -4,7 +4,7 @@ from typing import Any, Callable
 ## Third party libraries
 import torch
 from evotorch import Problem
-from evotorch.algorithms import CMAES
+from evotorch.algorithms import CMAES, SNES
 from evotorch.logging import StdOutLogger
 from mujoco import viewer
 import mujoco as mj
@@ -34,7 +34,7 @@ def show_individual_in_window(individual: Individual) -> None:
     '''
     core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
     
-    # Initialise controller to controller to None, always in the beginning.
+    # Initialise controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
 
     # Initialise world
@@ -64,14 +64,23 @@ def fitness_function(history: list[float]) -> Fitness:
     )
     return -cartesian_distance
 
-def evaluate_individual(individual: Individual) -> Fitness:
+
+def evaluate_individual(v, individual):
+    _evaluate_individual(v, individual)
+    print('indiviudal evaluated')
+    return 0
+
+def _evaluate_individual(v, individual: Individual) -> Fitness:
     '''
     this would probably entail submitting the individual to
     a simulation runtime-thingy
 
     TODO abortion logic
     '''
+    print(individual.body_graph)
+    print(individual.body_graph.edges(data=True))
     core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
+    print('core', core)
     
     mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
     name_to_bind = "core"
@@ -81,17 +90,20 @@ def evaluate_individual(individual: Individual) -> Fitness:
         mujoco_obj_to_find=mujoco_type_to_find,
         name_to_bind=name_to_bind,
     )
-    
-    # TODO construct callback function from individual NN + weights
-    cpg_controller: Callable = None
 
+    # TODO note that time_steps_per_save is insanely high. Make sure this does not impact fitness calculation
     ctrl = Controller(
-        controller_callback_function=cpg_controller,
+        controller_callback_function=individual.controller.callback,
         tracker=tracker,
     )
 
     # TODO run for every different start position
-    run_simulation(individual, ctrl, core, SPAWN_POS)
+    run_simulation(ctrl, core, SPAWN_POS)
+
+    print(tracker)
+    print(type(tracker))
+    print(tracker.history)
+    print(dir(tracker))
 
     # TODO figure out how to get history
     history = None
@@ -109,6 +121,9 @@ def train_individual(
     '''
     train the individual CGP
     '''
+
+    print('train individual')
+
 
     # TODO do we still need this
     xavier_bound = 0
@@ -128,9 +143,9 @@ def train_individual(
         num_actors=num_actors
     )
 
-    searcher = CMAES(
+    searcher = SNES(
         problem=problem,
-        popize=population_size,
+        popsize=population_size,
         stdev_init=stdev_init
     )
 
@@ -146,13 +161,13 @@ def train_individual(
     
 
 def run_simulation(
-        individual: Individual,
         controller: Controller,
         core: CoreModule,
         spawn_position: list[float],
         duration: int = 15
 ) -> None:
-    # Initialise controller to controller to None, always in the beginning.
+    print('running simulation')
+    # Initialise controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
 
     # Initialise world
