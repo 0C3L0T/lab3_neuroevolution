@@ -94,7 +94,9 @@ def evaluate_individual(v, individual: Individual) -> Fitness:
 
 
     local_controller = copy.deepcopy(individual.controller)
-    vector_to_params(v, local_controller)
+
+    local_controller.update_weights(v)
+    #vector_to_params(v, local_controller)
 
     # TODO note that time_steps_per_save is insanely high. Make sure this does not impact fitness calculation
     ctrl = Controller(
@@ -111,7 +113,6 @@ def evaluate_individual(v, individual: Individual) -> Fitness:
     # print(tracker.history)
     # print(dir(tracker))
 
-    # TODO figure out how to get history
     history = tracker.history
 
     fitness = fitness_function(history)

@@ -50,3 +50,6 @@ class RandomController(nn.Module):
 
         return outputs
 
+    def update_weights(self, v):
+        vector_to_params(v, self)
+
