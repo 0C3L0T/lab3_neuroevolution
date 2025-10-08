@@ -95,7 +95,7 @@ def init_individual(individual, id, ControllerClass, genome = None):
     _world.spawn(_core.spec, spawn_position=[1., 1., 1.])
     _model = _world.spec.compile()
     _data = mj.MjData(_model)
-    individual.n_inputs = len(_data.qpos) + len(_data.qvel)
+    individual.n_inputs = ControllerClass.num_inputs(len(_data.qpos), len(_data.qvel), 1)#(#len(_data.qpos) + len(_data.qvel))
     individual.n_outputs = _model.nu
 
     #individual.n_inputs = len(individual.body_graph) + 3

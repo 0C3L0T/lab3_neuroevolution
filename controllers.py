@@ -53,3 +53,5 @@ class NNController(nn.Module):
     def update_weights(self, v):
         vector_to_params(v, self)
 
+    def num_inputs(n_qpos, n_qvel, n_time):
+        return n_qpos + n_qvel
