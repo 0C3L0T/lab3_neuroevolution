@@ -18,17 +18,16 @@ def vector_to_params(vec, net):
 
 
 class NNController(nn.Module):
-
+    
     def __init__(self, n_inputs, n_outputs):
         super().__init__()
-        self.net = nn.Linear(n_inputs, n_outputs)
-
-        self._initialize_weights()
-
-
-    def _initialize_weights(self):
-        nn.init.xavier_uniform(self.net.weight)
-        nn.init.zeros_(self.net.bias)
+        self.net = nn.Sequential(
+            nn.Linear(n_inputs, 2 * 16),
+            #nn.Tanh(),
+            #nn.Linear(2 * 16, 2 * 16),
+            nn.Tanh(),
+            nn.Linear(2 * 16, n_outputs)
+        )
 
     def forward(self, x):
         return torch.tanh(self.net(x)) * (np.pi / 2)

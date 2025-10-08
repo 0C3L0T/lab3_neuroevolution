@@ -13,7 +13,9 @@ from networkx.readwrite import json_graph
 ## Local libraries
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
+import torch
 
+import torch.nn as nn
 from CPG import CPG
 
 import controllers
@@ -26,15 +28,21 @@ GENOTYPE_SIZE = 64
 #SEED = 42
 RNG = np.random.default_rng()#SEED)
 
+# list of 3 alleles
 type Genome = List[np.float32]
+
 type Fitness = float
 
 @dataclass
 class Individual:
+    '''
+    TODO have a fitness property
+    
+    '''
     id: int | None = None
     genome: Genome | None = None
     body_graph: nx.DiGraph | None = None
-    controller: any = None
+    controller: nn.Module | None = None
     n_cores: int | None = None
     n_bricks: int | None = None
     n_joints: int | None = None

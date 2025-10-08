@@ -1,6 +1,7 @@
 ## Standard library
 from concurrent.futures import ProcessPoolExecutor
 import os
+import pickle
 import random
 from typing import List
 
@@ -39,9 +40,9 @@ import controllers
 # Magic Numbers
 NUM_BODY_MODULES = 30  # they've changed this to 30 in the template now
 # TODO: make sure to modify this before submitting to AWS
-NUM_BRAIN_ACTORS = 2 #os.cpu_count() // 2
+NUM_BRAIN_ACTORS = os.cpu_count() // 2
 NUM_BODY_ACTORS = 2
-BODY_POPULATION_SIZE = 8
+BODY_POPULATION_SIZE = 100
 BRAIN_POPULATION_SIZE = 24
 DEFAULT_BODY_ITERATIONS = 100
 
@@ -63,13 +64,6 @@ DATA.mkdir(exist_ok=True)
 # --- CUSTOM TYPES --- #
 type Population = List[Individual]
 
-def init_nde_hpd():
-    global GLOBAL_NDE#, GLOBAL_HPD
-    # DO NOT TOUCH, there are issues with passing nde, hpd around parallel
-
-    # init the black box
-    GLOBAL_NDE = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
-
 def init_individual(
     id: int,
     ControllerClass: nn.Module,
@@ -79,7 +73,8 @@ def init_individual(
     Initialize a new Individual.
     NOTE: Should only be called from the main process.
     """
-    global GLOBAL_NDE, GLOBAL_HPD
+    # get NDE and HPD into scope
+    global GLOBAL_NDE
 
     # --- Genome setup ---
     genome = genome or create_genome()
@@ -105,7 +100,7 @@ def init_individual(
     # --- Controller ---
     controller = ControllerClass(n_inputs, n_outputs)
 
-    # --- Final assembly ---
+    # --- Final assembly of Individual dataclass ---
     return Individual(
         id=id,
         genome=genome,
@@ -143,19 +138,32 @@ def load_population(status: Status) -> Population | None:
 
     return population or None
 
+def load_nde(location: str) -> NeuralDevelopmentalEncoding:
+    path = Path(location)
 
-def store_population(status: Status, population: Population) -> None:
+    if not path.exists():
+        return None
+    
+    #unpickle
+    with open(f"{path}.pkl", "rb") as f:
+        return pickle.load(f)
+
+def store_nde(location: str, nde: NeuralDevelopmentalEncoding) -> None:
+    with open(f"{location}.pkl", "wb") as f:
+        pickle.dump(nde, f)
+
+
+def store_generation(status: Status, population: Population, generation: int) -> None:
     """
-    store population on disk at location
+    store generation population on disk
     """
-    checkpoint_dir = Path(status.checkpoint_dir)
+    checkpoint_dir = Path(f"{status.checkpoint_dir}/generation_{generation}")
 
     # create if doesn't exist
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     for individual in population:
         store_individual(dir_path=checkpoint_dir, individual=individual)
-
 
 def tournament_selection(
         parent_population: Population,
@@ -186,13 +194,28 @@ def mutate_population(population: Population) -> Population:
     return population
     #pass
 
-def crossover_population(population: Population) -> Population:
-    '''
-    TODO
-    '''
+def crossover_gene(gene_1: Genome, gene_2: Genome, mutation_rate: float) -> None:
+    for allele in range(len(gene_1)):
+        for (a, b) in zip(gene_1[allele], gene_2[allele]):
+            if random.random < mutation_rate:
+                t = a
+                a = b
+                b = t
 
-    # TODO remember to correctly reinitialize body graphs, see init_individual
-    return population
+
+def crossover_population(population: Population, mutation_rate: float) -> None:
+    '''
+    crossover population genomes in-place and pair wise.
+    '''
+    assert(len(population) % 2 == 0)
+
+    
+    
+    for i in range(0, len(population), 2):
+        individual_1 = population[i]
+        individual_2 = population[i+1]
+        crossover_gene(individual_1.genome, individual_2.genome, mutation_rate)
+
 
 def store_individual_body_graph(individual: Individual) -> None:
     '''
@@ -225,8 +248,16 @@ def train_population(population: Population, max_workers: int) -> Population:
 def main() -> None:
     CHECKPOINT_LOCATION = "checkpoints/"
     STATUS_LOCATION = "training_status.txt"
+    NDE_LOCATION = "NDE"
 
-    init_nde_hpd()
+    # load or init global NDE
+    global GLOBAL_NDE
+    nde = load_nde(NDE_LOCATION)
+    if not nde:
+        nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
+        store_nde(NDE_LOCATION, nde)
+    GLOBAL_NDE = nde
+
 
     # load or init training status
     status: Status = None#load_training_status(STATUS_LOCATION)
@@ -242,7 +273,7 @@ def main() -> None:
     population = None#load_population(status)
     if not population:
         population = init_population(BODY_POPULATION_SIZE)
-        store_population(status, population)
+        store_generation(status, population, generation=0)
     
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
         print('main: train_population')
@@ -255,7 +286,7 @@ def main() -> None:
 
         mutate_population(population)
         crossover_population(population)
-        store_population(population)
+        store_generation(status, population, generation=status.current_body_iteration)
 
         # update status
         display_training_status(status)
@@ -268,7 +299,13 @@ def main() -> None:
     store_individual_body_graph(fittest)
 
     # open an ariel window displaying fittest
-    show_individual_in_window(fittest)
+    try:
+        show_individual_in_window(fittest)
+    except Exception as e:
+        print(f"[WARN] Could not open Ariel window for fittest individual: {e}")
+
+
+    # TODO video functionality
 
     # some more visualisation?
     # show_xpos_history(tracker.history["xpos"][0])

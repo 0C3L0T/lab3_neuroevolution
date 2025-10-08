@@ -5,6 +5,7 @@ from typing import Any, Callable
 import torch
 from evotorch import Problem
 from evotorch.algorithms import CMAES, SNES
+from optimizer_hooker import HookedSNES
 from evotorch.logging import StdOutLogger
 from mujoco import viewer
 import mujoco as mj
@@ -25,7 +26,7 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
 
 from individual import Fitness, Individual
 
-from controllers import vector_to_params
+from controllers import NNController, vector_to_params
 
 # TODO figure out the start positions of each terrain
 SPAWN_POS = [-0.8, 0, 0.1]
@@ -58,25 +59,25 @@ def show_individual_in_window(individual: Individual) -> None:
     viewer.launch(model=model, data=data)
 
 def fitness_function(history) -> Fitness:
+    # robot moves Flat (-1.5->-0.5) -> Rugged (~0.5->2.5) -> Inclined (~3.5 -> 4.5)
     xt, yt, zt = TARGET_POSITION
+    xs, ys, zs = SPAWN_POS
     xc, yc, zc = history["xpos"][0][-1]
     #print("r_c:", xc, yc, zc)
 
-    # Minimize the distance --> maximize the negative distance
-    cartesian_distance = np.sqrt(
-        (xt - xc) ** 2 + (yt - yc) ** 2 + (zt - zc) ** 2,
-    )
-    return -cartesian_distance
+    # # Minimize the distance --> maximize the negative distance
+    # cartesian_distance = np.sqrt(
+    #     (xt - xc) ** 2 + (yt - yc) ** 2 + (zt - zc) ** 2,
+    # )
+    return xc - xs
 
 
-def evaluate_individual(v, individual: Individual) -> Fitness:
+def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
     '''
     this would probably entail submitting the individual to
     a simulation runtime-thingy
 
     THIS FUNCTION SHOULD NOT CHANGE THE INDIVIDUAL OBJECT, AS IT IS USED IN PARALLEL RAY WORKERS
-
-    TODO abortion logic
     '''
     # print(individual.body_graph)
     # print(individual.body_graph.edges(data=True))
@@ -92,11 +93,10 @@ def evaluate_individual(v, individual: Individual) -> Fitness:
         name_to_bind=name_to_bind,
     )
 
-
-    local_controller = copy.deepcopy(individual.controller)
+    # can be CPG controller in the future
+    local_controller: NNController = copy.deepcopy(individual.controller)
 
     local_controller.update_weights(v)
-    #vector_to_params(v, local_controller)
 
     # TODO note that time_steps_per_save is insanely high. Make sure this does not impact fitness calculation
     ctrl = Controller(
@@ -137,7 +137,6 @@ def train_individual(
 
     total_params = sum(p.numel() for p in individual.controller.parameters())
 
-
     # what is v here?
     problem = Problem(
         objective_sense="max",
@@ -148,16 +147,22 @@ def train_individual(
         num_actors=num_actors
     )
 
-    searcher = SNES(
+    def stopper(i, _searcher):
+        if i > 30 and _searcher.status['best_eval']  < 0.3:
+            return True
+        return False
+
+    searcher = HookedSNES(
         problem=problem,
         popsize=population_size,
-        stdev_init=stdev_init
+        stdev_init=stdev_init,
+        stopper=stopper,
     )
 
     _logger = StdOutLogger(searcher)
 
-    # TODO termination condition
-    n_iterations = 100
+    from main import DEFAULT_BODY_ITERATIONS
+    n_iterations = DEFAULT_BODY_ITERATIONS
     searcher.run(n_iterations)
 
     # not sure if this works
@@ -206,7 +211,6 @@ def run_simulation(
         lambda m, d: controller.set_control(m, d, *args, **kwargs),
     )
 
-    # TODO: run the simulation for a bit and see if we can abort
     # This disables visualisation (fastest option)
     simple_runner(
         model,

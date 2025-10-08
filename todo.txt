@@ -1,0 +1,30 @@
+Voor de eerste run:
+- mutate/crossover in main.py
+- nde vaststellen en hergebruiken. set in init_nde_hpd
+
+- check dat lichamen goed worden opgeslagen
+
+
+
+Morgen:
+- figure out starting coords for every terain, fill into simulation
+
+- elke keer evalueren op elk stukje van de map. fitness is de som van 3 fitnessi
+
+- nieuwe abortion wat is de threshold?
+
+- cpg schrijven
+
+(- kleinere versie cpg. eerste screening van hele grote populatie lichamen)
+
+
+
+
+- physics tick frequentie lager => simulatie sneller
+
+
+
+- meer data vastleggen. bijv. mean fitness, std van fitness in een generaties
+    - BELANGRIJK subpunt. leg de weights vast. 
+
+
