@@ -5,16 +5,17 @@ import random
 from typing import List
 
 ## Third party libraries
-import numpy as np
-import torch
-
+import torch.nn as nn
 import mujoco as mj
 
 ## Local libraries
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
+from ariel.body_phenotypes.robogen_lite.constructor import construct_mjspec_from_graph
+from ariel.simulation.environments.olympic_arena import OlympicArena
 
 from individual import (
+    Genome,
     Individual,
     create_body_graph,
     create_genome,
@@ -69,50 +70,56 @@ def init_nde_hpd():
     # init the black box
     GLOBAL_NDE = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
 
-
-def init_individual(id: int, ControllerClass, genome = None) -> Individual:
-    # THIS SHOULD NEVER BE CALLED FROM PROCESS OTHER THAN MAIN
-    # Neither should any genome be updated
-
+def init_individual(
+    id: int,
+    ControllerClass: nn.Module,
+    genome: Genome | None = None
+) -> Individual:
+    """
+    Initialize a new Individual.
+    NOTE: Should only be called from the main process.
+    """
     global GLOBAL_NDE, GLOBAL_HPD
-    individual: Individual = Individual()
-    individual.id = id
 
+    # --- Genome setup ---
+    genome = genome or create_genome()
 
-    if genome:
-        individual.genome = genome
-    else:
-        individual.genome = create_genome()
-
+    # --- Body generation ---
     hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
+    body_graph = create_body_graph(GLOBAL_NDE, hpd, genome)
 
-    individual.body_graph = create_body_graph(GLOBAL_NDE, hpd, individual.genome)
+    # --- MuJoCo model construction ---
+    core_spec = construct_mjspec_from_graph(body_graph)
+    world = OlympicArena()
+    world.spawn(core_spec.spec, spawn_position=[1.0, 1.0, 1.0])
+    model = world.spec.compile()
+    data = mj.MjData(model)
 
-    from ariel.body_phenotypes.robogen_lite.constructor import (
-        construct_mjspec_from_graph,
+    # --- IO and structure composition ---
+    n_inputs = ControllerClass.num_inputs(len(data.qpos), len(data.qvel), 1)
+    n_outputs = model.nu
+    n_cores, n_joints, n_bricks, n_rots = get_body_composition(body_graph)
+
+    print(f"n_cores: {n_cores}, n_bricks: {n_bricks}, n_joints: {n_joints}")
+
+    # --- Controller ---
+    controller = ControllerClass(n_inputs, n_outputs)
+
+    # --- Final assembly ---
+    return Individual(
+        id=id,
+        genome=genome,
+        body_graph=body_graph,
+        controller=controller,
+        n_cores=n_cores,
+        n_bricks=n_bricks,
+        n_joints=n_joints,
+        n_rots=n_rots,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
     )
-    from ariel.simulation.environments import OlympicArena
-
-    _core = construct_mjspec_from_graph(individual.body_graph)
-    _world = OlympicArena()
-    _world.spawn(_core.spec, spawn_position=[1., 1., 1.])
-    _model = _world.spec.compile()
-    _data = mj.MjData(_model)
-    individual.n_inputs = ControllerClass.num_inputs(len(_data.qpos), len(_data.qvel), 1)#(#len(_data.qpos) + len(_data.qvel))
-    individual.n_outputs = _model.nu
-
-    #individual.n_inputs = len(individual.body_graph) + 3
-
-    individual.n_cores, individual.n_joints, individual.n_bricks, individual.n_rots = get_body_composition(individual.body_graph)
-    print(f'n_cores: {individual.n_cores}, n_bricks: {individual.n_bricks}, n_joints: {individual.n_joints}')
-
-
-    individual.controller = ControllerClass(individual.n_inputs, individual.n_outputs)
-    return individual
-
 
 def init_population(population_size: int) -> Population:
-
     return [init_individual(id, controllers.NNController) for id in range(population_size)]
 
 def load_population(status: Status) -> Population | None:
