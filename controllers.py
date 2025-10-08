@@ -2,6 +2,21 @@ import torch
 import numpy as np
 import torch.nn as nn
 
+
+
+def vector_to_params(vec, net):
+    param_tensors = [p.detach().clone() for p in net.parameters()]
+    shapes = [p.shape for p in param_tensors]
+    sizes = [p.numel() for p in param_tensors]
+    total_params = sum(sizes)
+
+    idx = 0
+    with torch.no_grad():
+        for p, n in zip(net.parameters(), sizes):
+            p.copy_(vec[idx:idx + n].view_as(p))
+            idx += n
+
+
 class RandomController(nn.Module):
 
     def __init__(self, n_inputs, n_outputs):

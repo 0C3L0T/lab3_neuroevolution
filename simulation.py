@@ -9,6 +9,7 @@ from evotorch.logging import StdOutLogger
 from mujoco import viewer
 import mujoco as mj
 import numpy as np
+import copy
 
 ## Local libraries
 from ariel.simulation.environments import OlympicArena
@@ -23,6 +24,8 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
 )
 
 from individual import Fitness, Individual
+
+from controllers import vector_to_params
 
 # TODO figure out the start positions of each terrain
 SPAWN_POS = [-0.8, 0, 0.1]
@@ -89,9 +92,13 @@ def evaluate_individual(v, individual: Individual) -> Fitness:
         name_to_bind=name_to_bind,
     )
 
+
+    local_controller = copy.deepcopy(individual.controller)
+    vector_to_params(v, local_controller)
+
     # TODO note that time_steps_per_save is insanely high. Make sure this does not impact fitness calculation
     ctrl = Controller(
-        controller_callback_function=individual.controller.callback,
+        controller_callback_function=local_controller.callback,
         tracker=tracker,
     )
 
@@ -124,13 +131,10 @@ def train_individual(
     print(f'training individual with genome[0][0]:', individual.genome[0][0])
 
 
-    # TODO do we still need this
-    xavier_bound = 0
-
+    xavier_bound = np.sqrt(6/(individual.n_inputs + individual.n_outputs))
     stdev_init = xavier_bound
 
-    # TODO get total_params direclty from the controller or individual
-    total_params = 1
+    total_params = sum(p.numel() for p in individual.controller.parameters())
 
 
     # what is v here?
@@ -165,7 +169,7 @@ def run_simulation(
         spawn_position: list[float],
         duration: int = 15
 ) -> None:
-    print('running simulation')
+    #print('running simulation')
     # Initialise controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
 
@@ -180,10 +184,6 @@ def run_simulation(
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
     model = world.spec.compile()
     data = mj.MjData(model)
-
-    # robot_slice = get_robot_dof_slice(model, "robot-core")
-    # print("Robot DOF slice:", robot_slice)
-    # print("Robot DOF count:", len(data.qpos[robot_slice]))
 
     # Reset state and time of simulation
     mj.mj_resetData(model, data)
