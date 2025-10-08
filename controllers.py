@@ -28,6 +28,8 @@ class RandomController(nn.Module):
             torch.float32
         )
 
+        #print('d.qpos.shape, d.qvel.shape', d.qpos.shape, d.qvel.shape)
+
         with torch.no_grad():
             outputs = self.forward(inputs)
 

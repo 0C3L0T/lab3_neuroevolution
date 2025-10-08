@@ -8,6 +8,8 @@ from typing import List
 import numpy as np
 import torch
 
+import mujoco as mj
+
 ## Local libraries
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
@@ -63,7 +65,6 @@ def init_nde_hpd():
 
     # init the black box
     GLOBAL_NDE = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
-    #GLOBAL_HPD  = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
 
 
 def init_individual(individual, id, ControllerClass, genome = None):
@@ -73,14 +74,12 @@ def init_individual(individual, id, ControllerClass, genome = None):
     global GLOBAL_NDE, GLOBAL_HPD
     individual.id = id
 
-    from individual import create_genome, create_body_graph
+    from individual import create_genome, create_body_graph,  get_body_composition
 
     if genome:
         individual.genome = genome
     else:
         individual.genome = create_genome()
-
-    print('testing genome: ', individual.genome[0][0])
 
     hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
 
@@ -89,32 +88,23 @@ def init_individual(individual, id, ControllerClass, genome = None):
     from ariel.body_phenotypes.robogen_lite.constructor import (
         construct_mjspec_from_graph,
     )
-    print('testing core generation')
-    #try:
-    test_core = construct_mjspec_from_graph(individual.body_graph)
-    # except:
-    #     print('core failed')
-    # finally:
-    #     break
+    from ariel.simulation.environments import OlympicArena
 
-    print('core generated')
+    _core = construct_mjspec_from_graph(individual.body_graph)
+    _world = OlympicArena()
+    _world.spawn(_core.spec, spawn_position=[1., 1., 1.])
+    _model = _world.spec.compile()
+    _data = mj.MjData(_model)
+    individual.n_inputs = len(_data.qpos) + len(_data.qvel)
+    individual.n_outputs = _model.nu
 
-    # #nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_OF_MODULES)
-    # p_matrices = GLOBAL_NDE.forward(individual.genome)
-    #
-    # # Decode the high-probability graph
-    # # hpd = HighProbabilityDecoder(NUM_OF_MODULES)
-    # body_graph = GLOBAL_HPD.probability_matrices_to_graph(
-    #     p_matrices[0],
-    #     p_matrices[1],
-    #     p_matrices[2],
-    # )
-    # individual.body_graph = body_graph
+    #individual.n_inputs = len(individual.body_graph) + 3
 
-    from individual import get_body_composition
-    n_cores, n_joints, n_bricks, n_rots = get_body_composition(individual.body_graph)
+    individual.n_cores, individual.n_joints, individual.n_bricks, individual.n_rots = get_body_composition(individual.body_graph)
+    print(f'n_cores: {individual.n_cores}, n_bricks: {individual.n_bricks}, n_joints: {individual.n_joints}')
 
-    individual.controller = ControllerClass(n_cores * 6, n_joints)
+
+    individual.controller = ControllerClass(individual.n_inputs, individual.n_outputs)
 
 
 def init_population(
@@ -142,7 +132,7 @@ def load_population(status: Status) -> Population | None:
 
     if not checkpoint_dir.exists():
         return None
-    
+
     if not checkpoint_dir.is_dir():
         return None
 
@@ -150,7 +140,7 @@ def load_population(status: Status) -> Population | None:
     for file_path in Path(checkpoint_dir).iterdir():
         if file_path.is_file():
             population.append(load_individual(file_path))
-    
+
     return population or None
 
 
@@ -178,18 +168,20 @@ def tournament_selection(
         # take random individuals
         arena = random.sample(parent_population, arena_size)
 
-        # sort by fitness (fittest first)        
+        # sort by fitness (fittest first)
         arena.sort(key=lambda ind: ind.fitness, reverse=True)
 
         # Add best to children
         children_population.append(arena[0])
-    
+
     return children_population
 
 def mutate_population(population: Population) -> Population:
     '''
     TODO
     '''
+
+    # TODO remember to correctly reinitialize body graphs, see init_individual
 
     return population
     #pass
@@ -198,6 +190,8 @@ def crossover_population(population: Population) -> Population:
     '''
     TODO
     '''
+
+    # TODO remember to correctly reinitialize body graphs, see init_individual
     return population
 
 def store_individual_body_graph(individual: Individual) -> None:
@@ -220,6 +214,8 @@ def train_individual_wrapper(individual: Individual) -> Individual:
 
 
 def train_population(population: Population, max_workers: int) -> Population:
+
+    print('train population')
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(train_individual_wrapper, population))

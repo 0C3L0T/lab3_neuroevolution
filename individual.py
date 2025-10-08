@@ -40,6 +40,12 @@ class Individual:
     genome = None
     body_graph = None
     controller = None
+    n_cores = None
+    n_bricks = None
+    n_joints = None
+    n_rots = None
+    n_inputs = None
+    n_outputs = None
 
     # def __init__(
     #         self,
@@ -145,7 +151,6 @@ def create_body_graph(
 
 def get_body_composition(body_graph: nx.DiGraph):
     data = json_graph.node_link_data(body_graph, edges="edges")
-    print(data)
 
     nodes = data.get("nodes", [])
 

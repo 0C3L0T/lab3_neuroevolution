@@ -54,9 +54,10 @@ def show_individual_in_window(individual: Individual) -> None:
 
     viewer.launch(model=model, data=data)
 
-def fitness_function(history: list[float]) -> Fitness:
+def fitness_function(history) -> Fitness:
     xt, yt, zt = TARGET_POSITION
-    xc, yc, zc = history[-1]
+    xc, yc, zc = history["xpos"][0][-1]
+    #print("r_c:", xc, yc, zc)
 
     # Minimize the distance --> maximize the negative distance
     cartesian_distance = np.sqrt(
@@ -65,23 +66,20 @@ def fitness_function(history: list[float]) -> Fitness:
     return -cartesian_distance
 
 
-def evaluate_individual(v, individual):
-    _evaluate_individual(v, individual)
-    print('indiviudal evaluated')
-    return 0
-
-def _evaluate_individual(v, individual: Individual) -> Fitness:
+def evaluate_individual(v, individual: Individual) -> Fitness:
     '''
     this would probably entail submitting the individual to
     a simulation runtime-thingy
 
+    THIS FUNCTION SHOULD NOT CHANGE THE INDIVIDUAL OBJECT, AS IT IS USED IN PARALLEL RAY WORKERS
+
     TODO abortion logic
     '''
-    print(individual.body_graph)
-    print(individual.body_graph.edges(data=True))
+    # print(individual.body_graph)
+    # print(individual.body_graph.edges(data=True))
     core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
-    print('core', core)
-    
+    # print('core', core)
+
     mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
     name_to_bind = "core"
 
@@ -97,19 +95,20 @@ def _evaluate_individual(v, individual: Individual) -> Fitness:
         tracker=tracker,
     )
 
-    # TODO run for every different start position
+    # TODO run sequentially for 3 different start positions, corresponding with different terrains
+    # TODO also adjust the end positions
     run_simulation(ctrl, core, SPAWN_POS)
 
-    print(tracker)
-    print(type(tracker))
-    print(tracker.history)
-    print(dir(tracker))
+    # print(tracker)
+    # print(type(tracker))
+    # print(tracker.history)
+    # print(dir(tracker))
 
     # TODO figure out how to get history
-    history = None
+    history = tracker.history
 
     fitness = fitness_function(history)
-    individual.fitness = fitness
+    # print('fitness: ', fitness)
 
     return fitness
 
@@ -122,16 +121,17 @@ def train_individual(
     train the individual CGP
     '''
 
-    print('train individual')
+    print(f'training individual with genome[0][0]:', individual.genome[0][0])
 
 
     # TODO do we still need this
     xavier_bound = 0
 
     stdev_init = xavier_bound
-    
-    # TODO all neurons in network (in+out+hidden)
-    total_params = 24
+
+    # TODO get total_params direclty from the controller or individual
+    total_params = 1
+
 
     # what is v here?
     problem = Problem(
@@ -158,7 +158,6 @@ def train_individual(
     # not sure if this works
     best = searcher.status["best"]
     print(f"best candidate: {best}")
-    
 
 def run_simulation(
         controller: Controller,
@@ -182,12 +181,20 @@ def run_simulation(
     model = world.spec.compile()
     data = mj.MjData(model)
 
+    # robot_slice = get_robot_dof_slice(model, "robot-core")
+    # print("Robot DOF slice:", robot_slice)
+    # print("Robot DOF count:", len(data.qpos[robot_slice]))
+
     # Reset state and time of simulation
     mj.mj_resetData(model, data)
 
     # Pass the model and data to the tracker
     if controller.tracker is not None:
         controller.tracker.setup(world.spec, data)
+
+    # geoms = world.spec.worldbody.find_all(mj.mjtObj.mjOBJ_GEOM)
+    # print('geoms:', [geom.name for geom in geoms if "core" in geom.name])
+
 
     # Set the control callback function
     # This is called every time step to get the next action.
