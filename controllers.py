@@ -17,7 +17,7 @@ def vector_to_params(vec, net):
             idx += n
 
 
-class RandomController(nn.Module):
+class NNController(nn.Module):
 
     def __init__(self, n_inputs, n_outputs):
         super().__init__()

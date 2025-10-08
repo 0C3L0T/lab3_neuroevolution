@@ -118,7 +118,7 @@ def init_population(
     population = []
     for id in range(population_size):
         ind = Individual()
-        init_individual(ind, id, controllers.RandomController)
+        init_individual(ind, id, controllers.NNController)
         population.append(ind)
     return population
 
