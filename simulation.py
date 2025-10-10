@@ -24,13 +24,15 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
     construct_mjspec_from_graph,
 )
 
-from individual import Fitness, Individual
+from individual import Fitness, Individual, update_individual_fitness
 
 from controllers import NNController, vector_to_params
 
 # TODO figure out the start positions of each terrain
-SPAWN_POS = [-0.8, 0, 0.1]
-TARGET_POSITION = [5, 0, 0.5]
+BEGIN_SPAWN_POS = [-0.8, 0, 0.1]
+MIDDLE_SPAWN_POS = [1, 0, 0.1]
+END_SPAWN_POS = [3, 0, 0.15]
+TARGET_POS = [5, 0, 0.5]
 
 def show_individual_in_window(individual: Individual) -> None:
     '''
@@ -46,7 +48,7 @@ def show_individual_in_window(individual: Individual) -> None:
 
     # Spawn robot in the world
     # Check docstring for spawn conditions
-    world.spawn(core.spec, spawn_position=SPAWN_POS)
+    world.spawn(core.spec, spawn_position=BEGIN_SPAWN_POS)
 
     # Generate the model and data
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
@@ -58,10 +60,10 @@ def show_individual_in_window(individual: Individual) -> None:
 
     viewer.launch(model=model, data=data)
 
-def fitness_function(history) -> Fitness:
+def fitness_function(history, start_pos, target_pos) -> Fitness:
     # robot moves Flat (-1.5->-0.5) -> Rugged (~0.5->2.5) -> Inclined (~3.5 -> 4.5)
-    xt, yt, zt = TARGET_POSITION
-    xs, ys, zs = SPAWN_POS
+    xt, yt, zt = target_pos
+    xs, ys, zs = start_pos
     xc, yc, zc = history["xpos"][0][-1]
     #print("r_c:", xc, yc, zc)
 
@@ -76,9 +78,8 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
     '''
     this would probably entail submitting the individual to
     a simulation runtime-thingy
-
-    THIS FUNCTION SHOULD NOT CHANGE THE INDIVIDUAL OBJECT, AS IT IS USED IN PARALLEL RAY WORKERS
     '''
+    print(f"evaluating individual {individual.id}")
     # print(individual.body_graph)
     # print(individual.body_graph.edges(data=True))
     core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
@@ -104,21 +105,16 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
         tracker=tracker,
     )
 
-    # TODO run sequentially for 3 different start positions, corresponding with different terrains
-    # TODO also adjust the end positions
-    run_simulation(ctrl, core, SPAWN_POS)
+    total_fitness = 0
+    for spawn_pos in [BEGIN_SPAWN_POS, MIDDLE_SPAWN_POS, END_SPAWN_POS]:
+        run_simulation(ctrl, core, spawn_pos)
+        history = tracker.history
+        total_fitness += fitness_function(history, spawn_pos)
 
-    # print(tracker)
-    # print(type(tracker))
-    # print(tracker.history)
-    # print(dir(tracker))
+    average_fitness = total_fitness / 3
+    update_individual_fitness(individual, average_fitness)
+    return average_fitness
 
-    history = tracker.history
-
-    fitness = fitness_function(history)
-    # print('fitness: ', fitness)
-
-    return fitness
 
 def train_individual(
         individual: Individual,
@@ -175,6 +171,9 @@ def run_simulation(
         spawn_position: list[float],
         duration: int = 15
 ) -> None:
+    '''
+    TODO: abortion logic
+    '''
     #print('running simulation')
     # Initialise controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
