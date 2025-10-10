@@ -6,19 +6,20 @@ import pickle
 from typing import List 
 
 ## Third party libraries
+from ariel.body_phenotypes.robogen_lite.constructor import construct_mjspec_from_graph
+from ariel.simulation.environments.olympic_arena import OlympicArena
 import numpy as np
 import networkx as nx
 from networkx.readwrite import json_graph
+import mujoco as mj
 
 ## Local libraries
-from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
+from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
-import torch
+from ariel.utils.optimizers.revde import ArrayGenotype, RevDE
 
 import torch.nn as nn
-from CPG import CPG
 
-import controllers
 
 # MAGIC NUMBERS
 GENOTYPE_SIZE = 64
@@ -35,10 +36,6 @@ type Fitness = float
 
 @dataclass
 class Individual:
-    '''
-    TODO have a fitness property
-    
-    '''
     id: int | None = None
     genome: Genome | None = None
     body_graph: nx.DiGraph | None = None
@@ -49,6 +46,54 @@ class Individual:
     n_rots: int | None = None
     n_inputs: int | None = None
     n_outputs: int | None = None
+    fitness: float | None = None
+
+def init_individual(
+    nde: NeuralDevelopmentalEncoding,
+    id: int,
+    ControllerClass: nn.Module,
+    num_modules: int = 30,
+    genome: Genome | None = None,
+) -> Individual:
+
+    # --- Genome setup ---
+    genome = genome or create_genome()
+
+    # --- Body generation ---
+    hpd = HighProbabilityDecoder(num_modules=num_modules)
+    body_graph = create_body_graph(nde, hpd, genome)
+
+    # --- MuJoCo model construction ---
+    core_spec = construct_mjspec_from_graph(body_graph)
+    world = OlympicArena()
+    world.spawn(core_spec.spec, position=[1.0, 1.0, 1.0])
+    model = world.spec.compile()
+    data = mj.MjData(model)
+
+    # --- IO and structure composition ---
+    n_inputs = ControllerClass.num_inputs(len(data.qpos), len(data.qvel), 1)
+    n_outputs = model.nu
+    n_cores, n_joints, n_bricks, n_rots = get_body_composition(body_graph)
+
+    print(f"n_cores: {n_cores}, n_bricks: {n_bricks}, n_joints: {n_joints}")
+
+    # --- Controller ---
+    controller = ControllerClass(n_inputs, n_outputs)
+
+    # --- Final assembly of Individual dataclass ---
+    return Individual(
+        id=id,
+        genome=genome,
+        body_graph=body_graph,
+        controller=controller,
+        n_cores=n_cores,
+        n_bricks=n_bricks,
+        n_joints=n_joints,
+        n_rots=n_rots,
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        fitness=0
+    )
 
 def display_individual(individual):
     """Pretty-print all fields of an Individual dataclass."""
@@ -72,6 +117,17 @@ def create_genome():
 
     return genotype
 
+def update_individual_fitness(individual: Individual, fitness: float) -> None:
+    if fitness > individual.fitness:
+        individual.fitness = fitness
+
+def mutate_crossover_individuals(parents: List[Individual]) -> List[Individual]:
+    '''
+    create a list of three children given list of
+    three parents
+    '''
+    revde = RevDE(scaling_factor=-0.2)
+    return revde.mutate([np.concatenate(p.genome) for p in parents])
 
 def create_body_graph(
         nde: NeuralDevelopmentalEncoding,
@@ -117,6 +173,15 @@ def store_individual(dir_path: Path, individual: Individual) -> None:
     with open(f"{dir_path}/{individual.id}.pkl", "wb") as f:
         pickle.dump(individual, f)
         
+
+def store_individual_body_graph(individual: Individual) -> None:
+    '''
+    thie stores the body graph as JSON, needed for hand-in
+    '''
+    return save_graph_as_json(
+        individual.body_graph,
+        "THE_BADDEST_BITCH.json"
+    )
     
 def main():
     i: Individual = Individual()
