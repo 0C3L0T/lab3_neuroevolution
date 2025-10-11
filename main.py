@@ -9,6 +9,7 @@ import controllers
 
 from individual import (
     Individual,
+    store_individual,
     store_individual_body_graph,
     init_individual
 )
@@ -104,8 +105,8 @@ def main() -> None:
 
     fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
 
-    # save body as JSON
-    store_individual_body_graph(fittest)
+    # pickle body
+    store_individual("best")
 
     # open an ariel window displaying fittest
     try:

@@ -169,12 +169,15 @@ def load_individual(path: Path) -> Individual:
     with open(path, "rb") as f:
         return pickle.load(f)
 
-def store_individual(dir_path: Path, individual: Individual) -> None:
+def store_individual(dir_path: str, individual: Individual) -> None:
     '''
     pickle an Individual, assume the dir path exists
     '''
     assert is_dataclass(individual) and isinstance(individual, Individual), \
     "Expected an instance of Individual dataclass"
+
+    # create dir path if not exist
+    Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     with open(f"{dir_path}/{individual.id}.pkl", "wb") as f:
         pickle.dump(individual, f)
