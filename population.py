@@ -17,8 +17,6 @@ from status import Status
 
 type Population = List[Individual]
 
-import numpy as np
-
 NUM_BRAIN_ACTORS = os.cpu_count() // 2
 BRAIN_POPULATION_SIZE = 24
 ARENA_SIZE = 5
@@ -32,19 +30,26 @@ def load_population(status: Status) -> Population | None:
     load population from a location in status object or none if not available
     """
 
-    print("loading population")
-    checkpoint_dir = Path(status.checkpoint_dir)
-
-    if not checkpoint_dir.exists():
+    checkpoint_root = Path(status.checkpoint_dir)
+    if not checkpoint_root.exists() or not checkpoint_root.is_dir():
         return None
 
-    if not checkpoint_dir.is_dir():
+    gens = [
+        d for d in checkpoint_root.iterdir()
+        if d.is_dir() and d.name.startswith("generation_")
+    ]
+    if not gens:
         return None
+
+    latest_gen_dir = max(gens, key=lambda p: int(p.name.split("_")[-1]))
+    print(f"loading population from {latest_gen_dir}")
 
     population: Population = []
-    for file_path in Path(checkpoint_dir).iterdir():
+    for file_path in latest_gen_dir.iterdir():
         if file_path.is_file():
-            population.append(load_individual(file_path))
+            ind = load_individual(file_path)
+            ind.fitness = None
+            population.append(ind)
 
     return population or None
 
@@ -95,7 +100,7 @@ def evolve_population(population: Population, _init_individual):
     copy all the indivuals to the next generation
     '''
 
-    # select best halve of population
+    # select best half of population
     parents = tournament_selection(population, BODY_POPULATION_SIZE // 2, ARENA_SIZE)
 
     # crossover mutate

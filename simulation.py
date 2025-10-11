@@ -24,7 +24,7 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
     construct_mjspec_from_graph,
 )
 
-from individual import Fitness, Individual, update_individual_fitness
+from individual import Fitness, Individual
 
 from controllers import NNController, vector_to_params
 
@@ -117,7 +117,6 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
         total_fitness += minimal_fitness(history, spawn_pos)
 
     average_fitness = total_fitness / 3
-    update_individual_fitness(individual, average_fitness)
     return average_fitness
 
 def train_individual(

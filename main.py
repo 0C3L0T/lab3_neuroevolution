@@ -74,7 +74,7 @@ def main() -> None:
     _init_individual = lambda **kwargs: init_individual(nde, controllers.lobotomizedCPG, **kwargs)
 
     # Load or init training status
-    status: Status = None # load_training_status(STATUS_LOCATION)
+    status: Status = load_training_status(STATUS_LOCATION)
     if not status:
         print("CREATING NEW STATUS")
         status = Status(
@@ -91,6 +91,8 @@ def main() -> None:
 
         population = init_population(BODY_POPULATION_SIZE, _init_individual)
         store_generation(status, population, generation=0)
+
+    print('population leng', len(population))
     assert(len(population) % 2 == 0)
     
     ###### Main training loop ####################################

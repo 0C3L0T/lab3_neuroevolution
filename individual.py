@@ -95,7 +95,7 @@ def init_individual(
         n_rots=n_rots,
         n_inputs=n_inputs,
         n_outputs=n_outputs,
-        fitness=0
+        fitness=None
     )
 
 def display_individual(individual):
@@ -119,10 +119,6 @@ def create_genome():
     ]
 
     return genotype
-
-def update_individual_fitness(individual: Individual, fitness: float) -> None:
-    if fitness > individual.fitness:
-        individual.fitness = fitness
 
 def mutate_crossover_individuals(parents: List[Individual]):
     '''
