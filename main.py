@@ -10,7 +10,6 @@ import controllers
 from individual import (
     Individual,
     store_individual,
-    store_individual_body_graph,
     init_individual
 )
 
@@ -19,13 +18,11 @@ from population import (
     evolve_population,
     init_population,
     load_population,
-    mutate_crossover_population,
     store_generation,
-    tournament_selection,
     train_population
 )
 
-from settings import BODY_POPULATION_SIZE, NUM_BODY_ACTORS, NUM_BODY_MODULES
+from settings import BODY_POPULATION_SIZE, NUM_BODY_ACTORS, NUM_BODY_MODULES, DEFAULT_BODY_ITERATIONS
 from simulation import show_individual_in_window
 
 from status import (
@@ -36,11 +33,6 @@ from status import (
 )
 
 
-# --- RANDOM GENERATOR SETUP --- #
-
-#SEED = 42
-#RNG = np.random.default_rng(SEED)
-
 def store_nde(location: str, nde: NeuralDevelopmentalEncoding) -> None:
     with open(f"{location}.pkl", "wb") as f:
         pickle.dump(nde, f)
@@ -48,7 +40,7 @@ def store_nde(location: str, nde: NeuralDevelopmentalEncoding) -> None:
 def load_nde(location: str) -> NeuralDevelopmentalEncoding | None:
     path = Path(location)
 
-    if not path.exists():
+    if path.exists():
         return None
     
     with open(f"{path}.pkl", "rb") as f:
@@ -84,29 +76,30 @@ def main() -> None:
     population = load_population(status)
     if not population:
         print("CREATE NEW POPULATION")
-
         population = init_population(BODY_POPULATION_SIZE, _init_individual)
-        store_generation(status, population, generation=0)
 
-    print('population leng', len(population))
-    assert(len(population) % 2 == 0)
-    
     ###### Main training loop ####################################
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
         print(f"starting generation {status.current_body_iteration}")
-        population: Population = train_population(population, max_workers=NUM_BODY_ACTORS)
-
+        print(f"population length:  {len(population)}")
+        
+        store_generation(status, population)
+        population = train_population(population, max_workers=NUM_BODY_ACTORS)
         population = evolve_population(population, _init_individual)
+        for i in population:
+            print(i)
 
-        store_generation(status, population, generation=status.current_body_iteration)
         display_training_status(status)
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
 
+    print(f"length after training: {len(population)}")
+    assert all(ind.fitness != None for ind in population)
+
     fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
 
-    # pickle body
-    store_individual("best")
+    # pickle fittest individual
+    store_individual("baddest_bitch", fittest)
 
     # open an ariel window displaying fittest
     try:

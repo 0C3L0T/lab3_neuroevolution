@@ -50,11 +50,11 @@ def load_population(status: Status) -> Population | None:
 
     return population or None
 
-def store_generation(status: Status, population: Population, generation: int) -> None:
+def store_generation(status: Status, population: Population) -> None:
     """
     store generation population on disk
     """
-    checkpoint_dir = Path(f"{status.checkpoint_dir}/generation_{generation}")
+    checkpoint_dir = Path(f"{status.checkpoint_dir}/generation_{status.current_body_iteration}")
 
     # create if doesn't exist
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -68,9 +68,10 @@ def train_individual_wrapper(individual: Individual) -> Individual:
 
     print('train individual wrapper')
 
-    train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
+    ind = train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
+    print(f"[{individual.id}] fitness after training: {individual.fitness}")
 
-    return individual
+    return ind
 
 def train_population(population: Population, max_workers: int) -> Population:
 
