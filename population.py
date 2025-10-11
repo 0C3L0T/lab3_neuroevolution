@@ -1,4 +1,3 @@
-
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 import os
@@ -17,8 +16,8 @@ from status import Status
 
 type Population = List[Individual]
 
-NUM_BRAIN_ACTORS = os.cpu_count() // 2
-BRAIN_POPULATION_SIZE = 24
+NUM_BRAIN_ACTORS = 2#os.cpu_count() // 2
+BRAIN_POPULATION_SIZE = 12
 ARENA_SIZE = 5
 BODY_POPULATION_SIZE = 6  # should be multiple of 6
 
@@ -48,7 +47,7 @@ def load_population(status: Status) -> Population | None:
     for file_path in latest_gen_dir.iterdir():
         if file_path.is_file():
             ind = load_individual(file_path)
-            ind.fitness = None
+            #ind.fitness = None
             population.append(ind)
 
     return population or None
@@ -89,6 +88,7 @@ def train_population(population: Population, max_workers: int) -> Population:
     trained_ids = {ind.id: ind for ind in trained_individuals}
     for i, ind in enumerate(population):
         if ind.id in trained_ids:
+            print(f'putting back id {ind.id}')
             population[i] = trained_ids[ind.id]
 
     return population

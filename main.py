@@ -96,14 +96,19 @@ def main() -> None:
     assert(len(population) % 2 == 0)
     
     ###### Main training loop ####################################
-    for _ in range(status.desired_body_iterations - status.current_body_iteration):
+    for i in range(status.desired_body_iterations - status.current_body_iteration):
         print(f"starting generation {status.current_body_iteration}")
         population: Population = train_population(population, max_workers=NUM_BODY_ACTORS)
-
-        population = evolve_population(population, _init_individual)
+        print(f'length of population: {len(population)}')
 
         store_generation(status, population, generation=status.current_body_iteration)
         display_training_status(status)
+
+
+        if status.current_body_iteration == status.desired_body_iterations - 1:
+            break
+        population = evolve_population(population, _init_individual)
+
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
 
