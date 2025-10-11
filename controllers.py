@@ -52,5 +52,33 @@ class NNController(nn.Module):
     def update_weights(self, v):
         vector_to_params(v, self)
 
+    @staticmethod
     def num_inputs(n_qpos, n_qvel, n_time):
         return n_qpos + n_qvel
+
+
+class lobotomizedCPG(nn.Module):
+    def __init__(self, n_inputs, n_outputs):
+        super().__init__()
+
+        self.A = nn.Parameter(torch.zeros(n_outputs))
+        self.omega = nn.Parameter(torch.zeros(n_outputs))
+        self.phi = nn.Parameter(torch.zeros(n_outputs))
+
+    def forward(self, x):
+        t = x[-1]
+
+        return self.A * torch.sin(self.omega * t + self.phi)
+
+    def callback(self, m, d):
+        inputs = torch.tensor([d.time], dtype=torch.float32)
+        with torch.no_grad():
+            outputs = self.forward(inputs)
+        return outputs
+
+    def update_weights(self, v):
+        vector_to_params(v, self)
+
+    @staticmethod
+    def num_inputs(n_qpos, n_qvel, n_time):
+        return n_time

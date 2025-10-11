@@ -66,7 +66,7 @@ def init_individual(
     # --- MuJoCo model construction ---
     core_spec = construct_mjspec_from_graph(body_graph)
     world = OlympicArena()
-    world.spawn(core_spec.spec, position=[1.0, 1.0, 1.0])
+    world.spawn(core_spec.spec, spawn_position=[1.0, 1.0, 1.0])
     model = world.spec.compile()
     data = mj.MjData(model)
 

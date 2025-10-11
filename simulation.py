@@ -95,7 +95,7 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
     )
 
     # can be CPG controller in the future
-    local_controller: NNController = copy.deepcopy(individual.controller)
+    local_controller = copy.deepcopy(individual.controller)
 
     local_controller.update_weights(v)
 
