@@ -85,7 +85,7 @@ def evolve_population(population: Population) -> Population:
     '''
 
     # select best halve of population
-    parents = tournament_selection(population, BODY_POPULATION_SIZE/2, ARENA_SIZE)
+    parents = tournament_selection(population, BODY_POPULATION_SIZE // 2, ARENA_SIZE)
 
     # crossover mutate
     parents_copy = deepcopy(parents)
