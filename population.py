@@ -23,7 +23,7 @@ ARENA_SIZE = 5
 BODY_POPULATION_SIZE = 6  # should be multiple of 6
 
 def init_population(population_size: int, nde: NeuralDevelopmentalEncoding) -> Population:
-    return [init_individual(nde, id, controllers.NNController) for id in range(population_size)]
+    return [init_individual(nde, id, controllers.lobotomizedCPG) for id in range(population_size)]
 
 def load_population(status: Status) -> Population | None:
     """

@@ -65,12 +65,17 @@ def fitness_function(history, start_pos, target_pos) -> Fitness:
     xt, yt, zt = target_pos
     xs, ys, zs = start_pos
     xc, yc, zc = history["xpos"][0][-1]
-    #print("r_c:", xc, yc, zc)
 
-    # # Minimize the distance --> maximize the negative distance
-    # cartesian_distance = np.sqrt(
-    #     (xt - xc) ** 2 + (yt - yc) ** 2 + (zt - zc) ** 2,
-    # )
+
+    cartesian_distance = np.sqrt(
+         (xt - xc) ** 2 + (yt - yc) ** 2 + (zt - zc) ** 2,
+    )
+    return xc - xs
+
+def minimal_fitness(history, start_pos) -> Fitness:
+    xs, ys, zs = start_pos
+    xc, yc, zc = history["xpos"][0][-1]
+
     return xc - xs
 
 
@@ -82,7 +87,7 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
     print(f"evaluating individual {individual.id}")
     # print(individual.body_graph)
     # print(individual.body_graph.edges(data=True))
-    core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
+    # core: CoreModule = construct_mjspec_from_graph(individual.body_graph)  # ← moved inside loop
     # print('core', core)
 
     mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
@@ -94,9 +99,7 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
         name_to_bind=name_to_bind,
     )
 
-    # can be CPG controller in the future
     local_controller = copy.deepcopy(individual.controller)
-
     local_controller.update_weights(v)
 
     # TODO note that time_steps_per_save is insanely high. Make sure this does not impact fitness calculation
@@ -107,14 +110,15 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
 
     total_fitness = 0
     for spawn_pos in [BEGIN_SPAWN_POS, MIDDLE_SPAWN_POS, END_SPAWN_POS]:
+        # core needs to be recomplied every time, as attaching it to a MuJoCo works makes it dirty.
+        core: CoreModule = construct_mjspec_from_graph(individual.body_graph)
         run_simulation(ctrl, core, spawn_pos)
         history = tracker.history
-        total_fitness += fitness_function(history, spawn_pos)
+        total_fitness += minimal_fitness(history, spawn_pos)
 
     average_fitness = total_fitness / 3
     update_individual_fitness(individual, average_fitness)
     return average_fitness
-
 
 def train_individual(
         individual: Individual,
@@ -132,6 +136,7 @@ def train_individual(
     stdev_init = xavier_bound
 
     total_params = sum(p.numel() for p in individual.controller.parameters())
+    print(f'problem has {total_params} params')
 
     # what is v here?
     problem = Problem(
@@ -144,7 +149,7 @@ def train_individual(
     )
 
     def stopper(i, _searcher):
-        if i > 30 and _searcher.status['best_eval']  < 0.3:
+        if i > 10 and _searcher.status['best_eval']  < 0.3:
             return True
         return False
 
@@ -171,9 +176,6 @@ def run_simulation(
         spawn_position: list[float],
         duration: int = 15
 ) -> None:
-    '''
-    TODO: abortion logic
-    '''
     #print('running simulation')
     # Initialise controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
