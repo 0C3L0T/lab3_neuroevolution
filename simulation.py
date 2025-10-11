@@ -148,8 +148,11 @@ def train_individual(
         num_actors=num_actors
     )
 
+    aborted = False
+
     def stopper(i, _searcher):
         if i > 10 and _searcher.status['best_eval']  < 0.3:
+            aborted = True
             return True
         return False
 
@@ -169,6 +172,8 @@ def train_individual(
     # not sure if this works
     best = searcher.status["best"]
     print(f"best candidate: {best}")
+
+    individual.fitness = 0.0 if aborted else searcher.status["best_eval"]
 
 def run_simulation(
         controller: Controller,

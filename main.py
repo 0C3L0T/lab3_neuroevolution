@@ -4,11 +4,13 @@ import pickle
 
 from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
 
+import controllers
 ## Local libraries
 
 from individual import (
     Individual,
     store_individual_body_graph,
+    init_individual
 )
 
 from population import (
@@ -68,6 +70,9 @@ def main() -> None:
         nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
         store_nde(NDE_LOCATION, nde)
 
+    # centralized definition. we use one NDE and one controller type
+    _init_individual = lambda **kwargs: init_individual(nde, controllers.lobotomizedCPG, **kwargs)
+
     # Load or init training status
     status: Status = None # load_training_status(STATUS_LOCATION)
     if not status:
@@ -83,7 +88,8 @@ def main() -> None:
     population = load_population(status)
     if not population:
         print("CREATE NEW POPULATION")
-        population = init_population(BODY_POPULATION_SIZE, nde)
+
+        population = init_population(BODY_POPULATION_SIZE, _init_individual)
         store_generation(status, population, generation=0)
     assert(len(population) % 2 == 0)
     
@@ -92,17 +98,14 @@ def main() -> None:
         print(f"starting generation {status.current_body_iteration}")
         population: Population = train_population(population, max_workers=NUM_BODY_ACTORS)
 
-        # evolve replaces bottom halve of population,
-        # which means that the top half is going to be trained
-        # again
-        population = evolve_population(population)
+        population = evolve_population(population, _init_individual)
 
         store_generation(status, population, generation=status.current_body_iteration)
         display_training_status(status)
         status.current_body_iteration += 1
-        store_training_status(status)
+        store_training_status(status, STATUS_LOCATION)
 
-    fittest: Individual = population.sort(key=lambda ind: ind.fitness, reverse=True)[0]
+    fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
 
     # save body as JSON
     store_individual_body_graph(fittest)

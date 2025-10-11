@@ -19,6 +19,7 @@ from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 from ariel.utils.optimizers.revde import ArrayGenotype, RevDE
 
 import torch.nn as nn
+import numpy as np
 
 
 # MAGIC NUMBERS
@@ -50,7 +51,7 @@ class Individual:
 
 def init_individual(
     nde: NeuralDevelopmentalEncoding,
-    id: int,
+    #id: int,
     ControllerClass: nn.Module,
     num_modules: int = 30,
     genome: Genome | None = None,
@@ -79,6 +80,8 @@ def init_individual(
 
     # --- Controller ---
     controller = ControllerClass(n_inputs, n_outputs)
+
+    id = np.random.randint(10000000)
 
     # --- Final assembly of Individual dataclass ---
     return Individual(
@@ -121,13 +124,20 @@ def update_individual_fitness(individual: Individual, fitness: float) -> None:
     if fitness > individual.fitness:
         individual.fitness = fitness
 
-def mutate_crossover_individuals(parents: List[Individual]) -> List[Individual]:
+def mutate_crossover_individuals(parents: List[Individual]):
     '''
     create a list of three children given list of
     three parents
     '''
     revde = RevDE(scaling_factor=-0.2)
-    return revde.mutate([np.concatenate(p.genome) for p in parents])
+
+    grouped_genes = zip(*(p.genome for p in parents))
+
+    child_genomes = [
+        [np.array(g) for g in genes] for genes in zip(*[revde.mutate(*geneset) for geneset in grouped_genes])
+    ]
+
+    return child_genomes
 
 def create_body_graph(
         nde: NeuralDevelopmentalEncoding,

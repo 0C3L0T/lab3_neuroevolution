@@ -17,13 +17,15 @@ from status import Status
 
 type Population = List[Individual]
 
+import numpy as np
+
 NUM_BRAIN_ACTORS = os.cpu_count() // 2
 BRAIN_POPULATION_SIZE = 24
 ARENA_SIZE = 5
 BODY_POPULATION_SIZE = 6  # should be multiple of 6
 
-def init_population(population_size: int, nde: NeuralDevelopmentalEncoding) -> Population:
-    return [init_individual(nde, id, controllers.lobotomizedCPG) for id in range(population_size)]
+def init_population(population_size: int, _init_individual) -> Population:
+    return [_init_individual() for _ in range(population_size)]
 
 def load_population(status: Status) -> Population | None:
     """
@@ -72,13 +74,22 @@ def train_population(population: Population, max_workers: int) -> Population:
 
     print('train population')
 
+    to_train = [ind for ind in population if ind.fitness is None]
+    print(f'skipping training for {len(population) - len(to_train)} individuals.')
+
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(train_individual_wrapper, population))
+        _ = list(executor.map(train_individual_wrapper, to_train))
 
-    return results
+    # put back the trained ids
+    trained_ids = {id(ind): ind for ind in to_train}
+    for i, ind in enumerate(population):
+        if id(ind) in trained_ids:
+            population[i] = trained_ids[id(ind)]
+
+    return population
 
 
-def evolve_population(population: Population) -> Population:
+def evolve_population(population: Population, _init_individual):
     '''
     replace bottom halve with evolved children
     copy all the indivuals to the next generation
@@ -89,7 +100,13 @@ def evolve_population(population: Population) -> Population:
 
     # crossover mutate
     parents_copy = deepcopy(parents)
-    children = mutate_crossover_population(parents_copy)
+    child_genomes = mutate_crossover_population(parents_copy)
+
+
+    children = [
+        _init_individual(genome=genome) for genome in child_genomes
+    ]
+
 
     return parents + children
 
@@ -123,7 +140,9 @@ def mutate_crossover_population(population: Population) -> Population:
 
     children: List[Individual] = []
 
+    child_genomes = []
     for i in range(0, len(population), 3):
-        children.append(mutate_crossover_individuals(population[i:i+3]))
+        genomes = mutate_crossover_individuals(population[i:i+3])
+        child_genomes.extend(genomes)
 
-    return children
+    return child_genomes
