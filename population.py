@@ -11,16 +11,13 @@ from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
 
 import controllers
 from individual import Individual, init_individual, load_individual, mutate_crossover_individuals, store_individual
+from settings import ARENA_SIZE, BODY_POPULATION_SIZE, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS
 from simulation import train_individual
 from status import Status
 
 
 type Population = List[Individual]
 
-NUM_BRAIN_ACTORS = os.cpu_count() // 2
-BRAIN_POPULATION_SIZE = 24
-ARENA_SIZE = 5
-BODY_POPULATION_SIZE = 6  # should be multiple of 6
 
 def init_population(population_size: int, _init_individual) -> Population:
     return [_init_individual() for _ in range(population_size)]

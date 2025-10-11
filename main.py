@@ -24,6 +24,7 @@ from population import (
     train_population
 )
 
+from settings import BODY_POPULATION_SIZE, NUM_BODY_ACTORS, NUM_BODY_MODULES
 from simulation import show_individual_in_window
 
 from status import (
@@ -33,12 +34,6 @@ from status import (
     store_training_status
 )
 
-# Magic Numbers
-NUM_BODY_MODULES = 30  # they've changed this to 30 in the template now
-# TODO: make sure to modify this before submitting to AWS
-NUM_BODY_ACTORS = 2
-BODY_POPULATION_SIZE = 6 # should be multiple of 6
-DEFAULT_BODY_ITERATIONS = 3
 
 # --- RANDOM GENERATOR SETUP --- #
 
