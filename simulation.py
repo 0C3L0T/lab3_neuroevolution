@@ -150,6 +150,7 @@ def train_individual(
     aborted = False
 
     def stopper(i, _searcher):
+        global aborted
         if i > 10 and _searcher.status['best_eval']  < 0.3:
             aborted = True
             return True

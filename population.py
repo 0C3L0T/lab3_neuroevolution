@@ -83,13 +83,13 @@ def train_population(population: Population, max_workers: int) -> Population:
     print(f'skipping training for {len(population) - len(to_train)} individuals.')
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        _ = list(executor.map(train_individual_wrapper, to_train))
+        trained_individuals = list(executor.map(train_individual_wrapper, to_train))
 
     # put back the trained ids
-    trained_ids = {id(ind): ind for ind in to_train}
+    trained_ids = {ind.id: ind for ind in trained_individuals}
     for i, ind in enumerate(population):
-        if id(ind) in trained_ids:
-            population[i] = trained_ids[id(ind)]
+        if ind.id in trained_ids:
+            population[i] = trained_ids[ind.id]
 
     return population
 
