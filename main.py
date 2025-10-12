@@ -81,12 +81,16 @@ def main() -> None:
 
     ###### Main training loop ####################################
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
-        print(f"starting generation {status.current_body_iteration}")
-        print(f'length of population: {len(population)}')
+        print(f"starting body generation {status.current_body_iteration}")
 
         store_generation(status, population)
         population = evolve_population(population, _init_individual)
         population = train_population(population, max_workers=NUM_BODY_ACTORS)
+
+        # display generation best fitness
+        fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
+        print(f"current best fitness: {fittest.fitness}")
+
 
         display_training_status(status)
         status.current_body_iteration += 1
