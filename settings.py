@@ -14,7 +14,7 @@ NUM_BRAIN_ACTORS = 2 # os.cpu_count() // NUM_BODY_ACTORS
 BRAIN_POPULATION_SIZE = 6
 
 # arena size in tournament selection
-ARENA_SIZE = 5
+ARENA_SIZE = 2
 
 # how many bodies to use in a population, should be multiple of 6
 BODY_POPULATION_SIZE = 6

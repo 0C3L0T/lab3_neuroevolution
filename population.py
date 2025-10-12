@@ -131,9 +131,12 @@ def tournament_selection(
 
         # sort by fitness (fittest first)
         arena.sort(key=lambda ind: ind.fitness, reverse=True)
+        import numpy as np
 
         # Add best to children
-        selected.append(deepcopy(arena[0]))
+        best = deepcopy(arena[0])
+        best.id = np.random.randint(10000000)
+        selected.append(best)
 
     return selected
 
