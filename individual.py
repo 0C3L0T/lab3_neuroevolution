@@ -47,7 +47,7 @@ class Individual:
     n_rots: int | None = None
     n_inputs: int | None = None
     n_outputs: int | None = None
-    fitness: float | None = None
+    fitness: float = 0
 
 def init_individual(
     nde: NeuralDevelopmentalEncoding,
@@ -95,7 +95,7 @@ def init_individual(
         n_rots=n_rots,
         n_inputs=n_inputs,
         n_outputs=n_outputs,
-        fitness=None
+        fitness=0.0
     )
 
 def display_individual(individual):
