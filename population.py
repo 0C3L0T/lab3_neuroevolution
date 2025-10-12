@@ -1,5 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
+import math
 import os
 from pathlib import Path
 import random
@@ -9,7 +10,7 @@ from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
 
 
 import controllers
-from individual import Individual, init_individual, load_individual, mutate_crossover_individuals, store_individual
+from individual import Genome, Individual, init_individual, load_individual, mutate_crossover_individuals, store_individual
 from settings import ARENA_SIZE, BODY_POPULATION_SIZE, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS
 from simulation import train_individual
 from status import Status
@@ -73,10 +74,10 @@ def train_individual_wrapper(individual: Individual) -> Individual:
     return ind
 
 def train_population(population: Population, max_workers: int) -> Population:
-
     print('train population')
 
-    to_train = [ind for ind in population if ind.fitness is None]
+    # use isclose because comparing small floats is tricky
+    to_train = [ind for ind in population if math.isclose(ind.fitness, 0.0)]
     print(f'skipping training for {len(population) - len(to_train)} individuals.')
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -97,19 +98,19 @@ def evolve_population(population: Population, _init_individual):
     replace bottom halve with evolved children
     copy all the indivuals to the next generation
     '''
+    assert len(population) % 6 == 0
 
     # select best half of population
     parents = tournament_selection(population, BODY_POPULATION_SIZE // 2, ARENA_SIZE)
 
     # crossover mutate
-    parents_copy = deepcopy(parents)
-    child_genomes = mutate_crossover_population(parents_copy)
+    parents_copy: List[Individual] = deepcopy(parents)
+    child_genomes: List[Genome] = mutate_crossover_population(parents_copy)
 
 
-    children = [
+    children: List[Individual] = [
         _init_individual(genome=genome) for genome in child_genomes
     ]
-
 
     return parents + children
 
@@ -132,18 +133,16 @@ def tournament_selection(
         arena.sort(key=lambda ind: ind.fitness, reverse=True)
 
         # Add best to children
-        selected.append(arena[0])
+        selected.append(deepcopy(arena[0]))
 
     return selected
 
-def mutate_crossover_population(population: Population) -> Population:
+def mutate_crossover_population(population: Population) -> List[Genome]:
     '''
     '''
     assert(len(population) % 3 == 0)
 
-    children: List[Individual] = []
-
-    child_genomes = []
+    child_genomes: List[Genome] = []
     for i in range(0, len(population), 3):
         genomes = mutate_crossover_individuals(population[i:i+3])
         child_genomes.extend(genomes)

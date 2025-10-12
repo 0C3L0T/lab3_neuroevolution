@@ -21,4 +21,4 @@ BODY_POPULATION_SIZE = 6
 
 # how many iterations to train body for
 # brains have dynamic training iterations
-DEFAULT_BODY_ITERATIONS = 1
+DEFAULT_BODY_ITERATIONS = 2

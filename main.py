@@ -77,6 +77,7 @@ def main() -> None:
     if not population:
         print("CREATE NEW POPULATION")
         population = init_population(BODY_POPULATION_SIZE, _init_individual)
+    assert len(population) % 6 == 0, "population should be multiple of 6"
 
     ###### Main training loop ####################################
     for _ in range(status.desired_body_iterations - status.current_body_iteration):
@@ -84,15 +85,12 @@ def main() -> None:
         print(f'length of population: {len(population)}')
 
         store_generation(status, population)
-        population = train_population(population, max_workers=NUM_BODY_ACTORS)
         population = evolve_population(population, _init_individual)
+        population = train_population(population, max_workers=NUM_BODY_ACTORS)
 
         display_training_status(status)
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
-
-    print(f"length after training: {len(population)}")
-    assert all(ind.fitness != None for ind in population)
 
     fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
 
