@@ -1,5 +1,7 @@
 .vscode/
+.idea/
 
 __data__/
 __pycache__/
 MUJOCO_LOG.TXT
+NDE.pkl

@@ -8,10 +8,10 @@ NUM_BODY_MODULES = 30
 NUM_BODY_ACTORS = 2
 
 # how many brains to train at the same time
-NUM_BRAIN_ACTORS = os.cpu_count() // NUM_BODY_ACTORS
+NUM_BRAIN_ACTORS = 2 # os.cpu_count() // NUM_BODY_ACTORS
 
 # how many brains to use in brain population
-BRAIN_POPULATION_SIZE = 24
+BRAIN_POPULATION_SIZE = 6
 
 # arena size in tournament selection
 ARENA_SIZE = 5
@@ -21,4 +21,4 @@ BODY_POPULATION_SIZE = 6
 
 # how many iterations to train body for
 # brains have dynamic training iterations
-DEFAULT_BODY_ITERATIONS = 3
+DEFAULT_BODY_ITERATIONS = 2

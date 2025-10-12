@@ -47,7 +47,7 @@ class Individual:
     n_rots: int | None = None
     n_inputs: int | None = None
     n_outputs: int | None = None
-    fitness: float | None = None
+    fitness: float = 0
 
 def init_individual(
     nde: NeuralDevelopmentalEncoding,
@@ -67,7 +67,7 @@ def init_individual(
     # --- MuJoCo model construction ---
     core_spec = construct_mjspec_from_graph(body_graph)
     world = OlympicArena()
-    world.spawn(core_spec.spec, spawn_position=[1.0, 1.0, 1.0])
+    world.spawn(core_spec.spec, position=[1.0, 1.0, 1.0])
     model = world.spec.compile()
     data = mj.MjData(model)
 
@@ -95,7 +95,7 @@ def init_individual(
         n_rots=n_rots,
         n_inputs=n_inputs,
         n_outputs=n_outputs,
-        fitness=None
+        fitness=0.0
     )
 
 def display_individual(individual):
@@ -169,12 +169,15 @@ def load_individual(path: Path) -> Individual:
     with open(path, "rb") as f:
         return pickle.load(f)
 
-def store_individual(dir_path: Path, individual: Individual) -> None:
+def store_individual(dir_path: str, individual: Individual) -> None:
     '''
     pickle an Individual, assume the dir path exists
     '''
     assert is_dataclass(individual) and isinstance(individual, Individual), \
     "Expected an instance of Individual dataclass"
+
+    # create dir path if not exist
+    Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     with open(f"{dir_path}/{individual.id}.pkl", "wb") as f:
         pickle.dump(individual, f)

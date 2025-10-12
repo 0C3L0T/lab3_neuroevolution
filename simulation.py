@@ -3,7 +3,7 @@ from typing import Any, Callable
 
 ## Third party libraries
 import torch
-from evotorch import Problem
+from evotorch import Problem, Solution
 from evotorch.algorithms import CMAES, SNES
 from optimizer_hooker import HookedSNES
 from evotorch.logging import StdOutLogger
@@ -27,6 +27,7 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
 from individual import Fitness, Individual
 
 from controllers import NNController, vector_to_params
+from settings import DEFAULT_BODY_ITERATIONS
 
 # TODO figure out the start positions of each terrain
 BEGIN_SPAWN_POS = [-0.8, 0, 0.1]
@@ -48,7 +49,7 @@ def show_individual_in_window(individual: Individual) -> None:
 
     # Spawn robot in the world
     # Check docstring for spawn conditions
-    world.spawn(core.spec, spawn_position=BEGIN_SPAWN_POS)
+    world.spawn(core.spec, position=BEGIN_SPAWN_POS)
 
     # Generate the model and data
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
@@ -123,7 +124,7 @@ def train_individual(
         individual: Individual,
         population_size: int,
         num_actors: int
-        ) -> None:
+        ) -> Individual:
     '''
     train the individual CGP
     '''
@@ -163,17 +164,20 @@ def train_individual(
         stopper=stopper,
     )
 
-    _logger = StdOutLogger(searcher)
+    # _logger = StdOutLogger(searcher)
 
-    from main import DEFAULT_BODY_ITERATIONS
     n_iterations = DEFAULT_BODY_ITERATIONS
     searcher.run(n_iterations)
 
     # not sure if this works
-    best = searcher.status["best"]
+    best: Solution = searcher.status["best"]
     print(f"best candidate: {best}")
 
-    individual.fitness = 0.0 if aborted else searcher.status["best_eval"]
+    best_fitness: torch.Tensor = best.evals
+
+    individual.fitness = 0.0 if aborted else best_fitness.item()
+    print(f"best fitness: {best_fitness.item()}")
+    return individual
 
 def run_simulation(
         controller: Controller,
@@ -190,7 +194,7 @@ def run_simulation(
 
     # Spawn robot in the world
     # Check docstring for spawn conditions
-    world.spawn(core.spec, spawn_position=spawn_position)
+    world.spawn(core.spec, position=spawn_position)
 
     # Generate the model and data
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
