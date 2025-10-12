@@ -38,12 +38,12 @@ def store_nde(location: str, nde: NeuralDevelopmentalEncoding) -> None:
         pickle.dump(nde, f)
 
 def load_nde(location: str) -> NeuralDevelopmentalEncoding | None:
-    path = Path(location)
+    path = Path(f"{location}.pkl")
 
-    if path.exists():
+    if not path.exists():
         return None
     
-    with open(f"{path}.pkl", "rb") as f:
+    with open(path, "rb") as f:
         return pickle.load(f)
 
 def main() -> None:
@@ -52,8 +52,8 @@ def main() -> None:
     NDE_LOCATION = "NDE"
 
     # Load or init NDE
-    nde = load_nde(NDE_LOCATION)
-    if not nde:
+    nde: NeuralDevelopmentalEncoding | None = load_nde(NDE_LOCATION)
+    if nde == None:
         print("CREATING NEW NDE")
         nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
         store_nde(NDE_LOCATION, nde)
@@ -79,18 +79,15 @@ def main() -> None:
         population = init_population(BODY_POPULATION_SIZE, _init_individual)
 
     ###### Main training loop ####################################
-    for i in range(status.desired_body_iterations - status.current_body_iteration):
+    for _ in range(status.desired_body_iterations - status.current_body_iteration):
         print(f"starting generation {status.current_body_iteration}")
-        population: Population = train_population(population, max_workers=NUM_BODY_ACTORS)
         print(f'length of population: {len(population)}')
 
-        display_training_status(status)
-
-
-        if status.current_body_iteration == status.desired_body_iterations - 1:
-            break
+        store_generation(status, population)
+        population = train_population(population, max_workers=NUM_BODY_ACTORS)
         population = evolve_population(population, _init_individual)
 
+        display_training_status(status)
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
 
