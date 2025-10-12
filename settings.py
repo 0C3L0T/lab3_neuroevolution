@@ -14,7 +14,7 @@ NUM_BRAIN_ACTORS = 20
 BRAIN_POPULATION_SIZE = 30
 
 # arena size in tournament selection
-ARENA_SIZE = 5
+ARENA_SIZE = 2
 
 # how many bodies to use in a population, should be multiple of 6
 BODY_POPULATION_SIZE = 18
