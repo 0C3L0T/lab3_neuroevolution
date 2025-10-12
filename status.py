@@ -64,4 +64,4 @@ def display_training_status(status: Status) -> None:
     Pretty-print the current training status.
     """
     print(f"Training progress: {status.current_body_iteration}/{status.desired_body_iterations}")
-    print(f"Checkpoint directory: {status.checkpoint_dir}")
+    # print(f"Checkpoint directory: {status.checkpoint_dir}")

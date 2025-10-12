@@ -76,8 +76,6 @@ def init_individual(
     n_outputs = model.nu
     n_cores, n_joints, n_bricks, n_rots = get_body_composition(body_graph)
 
-    print(f"n_cores: {n_cores}, n_bricks: {n_bricks}, n_joints: {n_joints}")
-
     # --- Controller ---
     controller = ControllerClass(n_inputs, n_outputs)
 
