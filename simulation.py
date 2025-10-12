@@ -85,12 +85,6 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
     this would probably entail submitting the individual to
     a simulation runtime-thingy
     '''
-    print(f"evaluating individual {individual.id}")
-    # print(individual.body_graph)
-    # print(individual.body_graph.edges(data=True))
-    # core: CoreModule = construct_mjspec_from_graph(individual.body_graph)  # ← moved inside loop
-    # print('core', core)
-
     mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
     name_to_bind = "core"
 
@@ -129,14 +123,10 @@ def train_individual(
     train the individual CGP
     '''
 
-    print(f'training individual with genome[0][0]:', individual.genome[0][0])
-
-
     xavier_bound = np.sqrt(6/(individual.n_inputs + individual.n_outputs))
     stdev_init = xavier_bound
 
     total_params = sum(p.numel() for p in individual.controller.parameters())
-    print(f'problem has {total_params} params')
 
     # what is v here?
     problem = Problem(
@@ -171,12 +161,9 @@ def train_individual(
 
     # not sure if this works
     best: Solution = searcher.status["best"]
-    print(f"best candidate: {best}")
-
     best_fitness: torch.Tensor = best.evals
-
     individual.fitness = 0.0 if aborted else best_fitness.item()
-    print(f"best fitness: {best_fitness.item()}")
+
     return individual
 
 def run_simulation(
@@ -185,7 +172,6 @@ def run_simulation(
         spawn_position: list[float],
         duration: int = 15
 ) -> None:
-    #print('running simulation')
     # Initialise controller to None, always in the beginning.
     mj.set_mjcb_control(None)  # DO NOT REMOVE
 
@@ -207,10 +193,6 @@ def run_simulation(
     # Pass the model and data to the tracker
     if controller.tracker is not None:
         controller.tracker.setup(world.spec, data)
-
-    # geoms = world.spec.worldbody.find_all(mj.mjtObj.mjOBJ_GEOM)
-    # print('geoms:', [geom.name for geom in geoms if "core" in geom.name])
-
 
     # Set the control callback function
     # This is called every time step to get the next action.

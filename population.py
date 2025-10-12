@@ -65,20 +65,13 @@ def store_generation(status: Status, population: Population) -> None:
 
 def train_individual_wrapper(individual: Individual) -> Individual:
     # EvoTorch inits the Ray clusters
-
-    print('train individual wrapper')
-
     ind = train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
-    print(f"[{individual.id}] fitness after training: {individual.fitness}")
 
     return ind
 
 def train_population(population: Population, max_workers: int) -> Population:
-    print('train population')
-
     # use isclose because comparing small floats is tricky
     to_train = [ind for ind in population if math.isclose(ind.fitness, 0.0)]
-    print(f'skipping training for {len(population) - len(to_train)} individuals.')
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         trained_individuals = list(executor.map(train_individual_wrapper, to_train))
@@ -87,7 +80,6 @@ def train_population(population: Population, max_workers: int) -> Population:
     trained_ids = {ind.id: ind for ind in trained_individuals}
     for i, ind in enumerate(population):
         if ind.id in trained_ids:
-            print(f'putting back id {ind.id}')
             population[i] = trained_ids[ind.id]
 
     return population
