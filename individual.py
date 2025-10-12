@@ -130,7 +130,7 @@ def mutate_crossover_individuals(parents: List[Individual]):
     create a list of three children given list of
     three parents
     '''
-    revde = RevDE(scaling_factor=0.5)
+    revde = RevDE(scaling_factor=0.2)
 
     grouped_genes = zip(*(p.genome for p in parents))
 
