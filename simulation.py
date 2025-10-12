@@ -49,7 +49,7 @@ def show_individual_in_window(individual: Individual) -> None:
 
     # Spawn robot in the world
     # Check docstring for spawn conditions
-    world.spawn(core.spec, spawn_position=BEGIN_SPAWN_POS)
+    world.spawn(core.spec, position=BEGIN_SPAWN_POS)
 
     # Generate the model and data
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
