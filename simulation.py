@@ -116,6 +116,7 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
         run_simulation(ctrl, core, spawn_pos)
         history = tracker.history
         total_fitness += minimal_fitness(history, spawn_pos)
+        tracker.history.clear()
 
     average_fitness = total_fitness / 3
     return average_fitness
@@ -166,7 +167,7 @@ def train_individual(
 
     # _logger = StdOutLogger(searcher)
 
-    n_iterations = DEFAULT_BODY_ITERATIONS
+    n_iterations = 20#DEFAULT_BODY_ITERATIONS
     searcher.run(n_iterations)
 
     # not sure if this works
@@ -177,6 +178,13 @@ def train_individual(
 
     individual.fitness = 0.0 if aborted else best_fitness.item()
     print(f"best fitness: {best_fitness.item()}")
+
+    del searcher
+    del problem
+    del best
+    import gc
+    gc.collect()
+
     return individual
 
 def run_simulation(
@@ -227,3 +235,13 @@ def run_simulation(
         data,
         duration=duration,
     )
+
+    mj.set_mjcb_control(None)
+
+    del data
+    del model
+    del world
+    del core
+
+    import gc
+    gc.collect()
