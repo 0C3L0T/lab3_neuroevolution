@@ -17,7 +17,7 @@ BRAIN_POPULATION_SIZE = 48
 ARENA_SIZE = 5
 
 # how many bodies to use in a population, should be multiple of 6
-BODY_POPULATION_SIZE = 24
+BODY_POPULATION_SIZE = 30
 
 # how many iterations to train body for
 # brains have dynamic training iterations
