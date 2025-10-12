@@ -79,17 +79,18 @@ def main() -> None:
         population = init_population(BODY_POPULATION_SIZE, _init_individual)
 
     ###### Main training loop ####################################
-    for _ in range(status.desired_body_iterations - status.current_body_iteration):
+    for i in range(status.desired_body_iterations - status.current_body_iteration):
         print(f"starting generation {status.current_body_iteration}")
-        print(f"population length:  {len(population)}")
-        
-        store_generation(status, population)
-        population = train_population(population, max_workers=NUM_BODY_ACTORS)
-        population = evolve_population(population, _init_individual)
-        for i in population:
-            print(i)
+        population: Population = train_population(population, max_workers=NUM_BODY_ACTORS)
+        print(f'length of population: {len(population)}')
 
         display_training_status(status)
+
+
+        if status.current_body_iteration == status.desired_body_iterations - 1:
+            break
+        population = evolve_population(population, _init_individual)
+
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
 
