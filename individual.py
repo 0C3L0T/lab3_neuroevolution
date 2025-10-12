@@ -81,6 +81,13 @@ def init_individual(
 
     id = np.random.randint(10000000)
 
+    del data
+    del model
+    del world
+    import gc
+    gc.collect()
+    mj.set_mjcb_control(None)
+
     # --- Final assembly of Individual dataclass ---
     return Individual(
         id=id,
