@@ -1,7 +1,6 @@
 
 # hardcoded locations for storing things
 CHECKPOINT_LOCATION = "checkpoints/"
-STATUS_LOCATION = "training_status.txt"
 NDE_LOCATION = "NDE"
 
 DEBUG = True
@@ -29,7 +28,7 @@ BODY_POPULATION_SIZE = 18
 DEFAULT_BODY_ITERATIONS = 9999
 
 if DEBUG:
-    NUM_BODY_ACTORS = 1
+    NUM_BODY_ACTORS = 2
     NUM_BRAIN_ACTORS = 2
     BRAIN_POPULATION_SIZE = 2
     BODY_POPULATION_SIZE = 2

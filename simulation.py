@@ -1,10 +1,10 @@
 ## Standard library
 import gc
-from typing import Any, Callable
+from typing import Any
 
 ## Third party libraries
 import torch
-from evotorch import Problem, Solution
+from evotorch import Problem
 from optimizer_hooker import HookedSNES
 from evotorch.logging import StdOutLogger
 from mujoco import viewer
@@ -26,10 +26,6 @@ from ariel.body_phenotypes.robogen_lite.constructor import (
 
 from individual import Fitness, Individual
 
-from controllers import NNController, vector_to_params
-from settings import DEFAULT_BODY_ITERATIONS
-
-# TODO figure out the start positions of each terrain
 BEGIN_SPAWN_POS = [-0.8, 0, 0.1]
 MIDDLE_SPAWN_POS = [1, 0, 0.1]
 END_SPAWN_POS = [3, 0, 0.15]

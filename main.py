@@ -1,10 +1,8 @@
 from pathlib import Path
 from typing import Callable
-from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import RNG
 from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
 from evotorch import Problem, Solution
 
-import numpy as np
 import torch
 from evotorch.algorithms import SNES
 from evotorch.logging import StdOutLogger
@@ -29,11 +27,9 @@ from settings import (
     NDE_LOCATION,
     NUM_BODY_ACTORS,
     NUM_BRAIN_ACTORS,
-    STATUS_LOCATION
 )
 
 from simulation import show_individual_in_window, train_individual
-from status import Status, load_or_init_status, store_training_status
 
 def store_generation(generation: int, solver: SNES, init_individual_function: Callable[[], Individual]) -> None:
     pop = solver.population
@@ -45,10 +41,7 @@ def store_generation(generation: int, solver: SNES, init_individual_function: Ca
         # create Individual from genome using NDE?
         genome = sol.values
 
-        # TODO check format
-        print(genome)
         individual: Individual = init_individual_function(genome)
-        # TODO set weights?
         store_individual(checkpoint_dir, individual)
 
 
@@ -59,11 +52,9 @@ def evaluate_genome(body_genome: Genome, init_individual_function: Callable[[], 
 
 def main() -> None:
     nde: NeuralDevelopmentalEncoding = load_or_init_nde(NDE_LOCATION)
-    status: Status = load_or_init_status(STATUS_LOCATION)
 
     # centralized definition. we use one NDE and one controller type
     _init_individual = lambda genome: init_individual(nde, controllers.lobotomizedCPG, genome)
-
 
     '''
     TODO
@@ -71,7 +62,6 @@ def main() -> None:
         - set initial bounds according to normal distribution?
     '''
     BODY_DIMENSION = 3 * GENOTYPE_SIZE
-    bounds = RNG.random()
     body_problem: Problem = Problem(
         objective_sense="max",
         objective_func=lambda genome: evaluate_genome(genome, _init_individual),
@@ -92,24 +82,13 @@ def main() -> None:
     ## MAIN TRAINING LOOP
     for generation in range(DEFAULT_BODY_ITERATIONS):
         print(f"\n==== Generation {generation} ====")
-
         body_solver.run(1)
-
-        print(f"current best fitness: {body_solver.status["best_eval"]}")
-
         store_generation(generation, body_solver, _init_individual)
         
-        status.current_body_iteration += 1
-        store_training_status(status, STATUS_LOCATION)
+    print("END OF TRAINING")
 
     fittest_genome: Solution = body_solver.status["best"]
-    
-    # TODO check if this format is correct
-    print("END OF TRAINING")
-    print(fittest_genome)
-
     fittest_individual: Individual = _init_individual(fittest_genome.values)
-    print(fittest_individual)
 
     # open an ariel window displaying fittest
     try:
