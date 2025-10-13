@@ -4,6 +4,7 @@ from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import RNG
 from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
 from evotorch import Problem
 
+import numpy as np
 import torch
 from evotorch.algorithms import SNES
 from evotorch.logging import StdOutLogger
@@ -46,6 +47,7 @@ def store_generation(generation: int, solver: SNES, init_individual_function: Ca
         # TODO check format
         print(genome)
         individual: Individual = init_individual_function(genome)
+        # TODO set weights?
         store_individual(checkpoint_dir, individual)
 
 
@@ -59,7 +61,8 @@ def main() -> None:
     status: Status = load_or_init_status(STATUS_LOCATION)
 
     # centralized definition. we use one NDE and one controller type
-    _init_individual = lambda **kwargs: init_individual(nde, controllers.lobotomizedCPG, **kwargs)
+    _init_individual = lambda genome: init_individual(nde, controllers.lobotomizedCPG, genome)
+
 
     '''
     TODO
@@ -67,27 +70,33 @@ def main() -> None:
         - set initial bounds according to normal distribution?
     '''
     BODY_DIMENSION = 3 * GENOTYPE_SIZE
+    bounds = RNG.random()
     body_problem: Problem = Problem(
         objective_sense="max",
         objective_func=lambda genome: evaluate_genome(genome, _init_individual),
         solution_length=BODY_DIMENSION,
-        initial_bounds=RNG.random(BODY_DIMENSION).astype(torch.float32),
+        initial_bounds=(0, 1),
         dtype=torch.float32,
         num_actors=NUM_BODY_ACTORS
     )
 
-    body_solver = SNES(body_problem, popsize=BODY_POPULATION_SIZE, stdev_init=0.2)
+    body_solver = SNES(
+        problem=body_problem,
+        popsize=BODY_POPULATION_SIZE,
+        stdev_init=0.2
+    )
+
     StdOutLogger(body_solver)
 
     ## MAIN TRAINING LOOP
     for generation in range(status.desired_body_iterations - status.current_body_iteration):
         print(f"\n==== Generation {generation} ====")
 
-        # TODO change
-        store_generation(generation, body_solver)
         body_solver.run(1)
 
         print(f"current best fitness: {body_solver.status["best_fitness"]}")
+
+        store_generation(generation, body_solver, _init_individual)
         
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)

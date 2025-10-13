@@ -156,7 +156,6 @@ def train_individual(
 
     total_params = sum(p.numel() for p in individual.controller.parameters())
 
-    # what is v here?
     problem = Problem(
         objective_sense="max",
         objective_func=lambda brain_weights: evaluate_individual(brain_weights, individual),

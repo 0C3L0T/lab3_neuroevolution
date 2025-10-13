@@ -17,6 +17,7 @@ import mujoco as mj
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
 
+import torch
 import torch.nn as nn
 import numpy as np
 
@@ -46,11 +47,12 @@ class Individual:
 def init_individual(
     nde: NeuralDevelopmentalEncoding,
     ControllerClass: nn.Module,
-    unsplit_genome: Genome,
+    unsplit_genome: torch.Tensor,
 ) -> Individual:
 
     # split genome in three arrays
-    genome = [unsplit_genome[i*GENOTYPE_SIZE:(i+1)*GENOTYPE_SIZE] for i in range(3)]
+    unsplit_np =unsplit_genome.detach().cpu().numpy()
+    genome: np.ndarray = [unsplit_np[i*GENOTYPE_SIZE:(i+1)*GENOTYPE_SIZE] for i in range(3)]
 
     # --- Body generation ---
     hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
