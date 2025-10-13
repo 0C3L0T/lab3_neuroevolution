@@ -51,8 +51,9 @@ def init_individual(
 ) -> Individual:
 
     # split genome in three arrays
-    unsplit_np =unsplit_genome.detach().cpu().numpy()
+    unsplit_np =unsplit_genome.detach().cpu().tolist()
     genome: np.ndarray = [unsplit_np[i*GENOTYPE_SIZE:(i+1)*GENOTYPE_SIZE] for i in range(3)]
+    genome = np.array(genome)
 
     # --- Body generation ---
     hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
