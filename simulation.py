@@ -187,11 +187,10 @@ def train_individual(
     n_iterations = 20
     searcher.run(n_iterations)
 
-    best_fitness = searcher.status["best"].evals.items()
+    best_fitness = searcher.status["best_eval"]
 
     del searcher
     del problem
-    del best
     gc.collect()
 
     return best_fitness

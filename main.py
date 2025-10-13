@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Callable
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import RNG
 from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
-from evotorch import Problem
+from evotorch import Problem, Solution
 
 import numpy as np
 import torch
@@ -24,6 +24,7 @@ from settings import (
     BODY_POPULATION_SIZE,
     BRAIN_POPULATION_SIZE,
     CHECKPOINT_LOCATION,
+    DEFAULT_BODY_ITERATIONS,
     GENOTYPE_SIZE,
     NDE_LOCATION,
     NUM_BODY_ACTORS,
@@ -89,24 +90,26 @@ def main() -> None:
     StdOutLogger(body_solver)
 
     ## MAIN TRAINING LOOP
-    for generation in range(status.desired_body_iterations - status.current_body_iteration):
+    for generation in range(DEFAULT_BODY_ITERATIONS):
         print(f"\n==== Generation {generation} ====")
 
         body_solver.run(1)
 
-        print(f"current best fitness: {body_solver.status["best_fitness"]}")
+        print(f"current best fitness: {body_solver.status["best_eval"]}")
 
         store_generation(generation, body_solver, _init_individual)
         
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
 
-    fittest_genome: Genome = body_solver.status["best"]
+    fittest_genome: Solution = body_solver.status["best"]
     
     # TODO check if this format is correct
+    print("END OF TRAINING")
     print(fittest_genome)
 
-    fittest_individual: Individual = _init_individual(fittest_genome)
+    fittest_individual: Individual = _init_individual(fittest_genome.values)
+    print(fittest_individual)
 
     # open an ariel window displaying fittest
     try:
