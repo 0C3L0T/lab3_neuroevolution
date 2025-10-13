@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from settings import DEFAULT_BODY_ITERATIONS
+
 
 @dataclass
 class Status:
@@ -58,6 +60,19 @@ def store_training_status(status: Status, location: str) -> None:
         f.write(f"current_body_iteration={status.current_body_iteration}\n")
         f.write(f"checkpoint_dir={status.checkpoint_dir}\n")
 
+
+def load_or_init_status(location: str) -> Status:
+    status: Status | None = load_training_status(location)
+    if status == None:
+        print("CREATING NEW STATUS")
+        status = Status(
+            desired_body_iterations=DEFAULT_BODY_ITERATIONS,
+            current_body_iteration=0,
+            checkpoint_dir=Path(location)
+        )
+        store_training_status(status, location)
+    
+    return status
 
 def display_training_status(status: Status) -> None:
     """

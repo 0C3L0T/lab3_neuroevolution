@@ -16,19 +16,12 @@ import mujoco as mj
 ## Local libraries
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder, save_graph_as_json
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
-from ariel.utils.optimizers.revde import ArrayGenotype, RevDE
 
 import torch.nn as nn
 import numpy as np
 
-
-# MAGIC NUMBERS
-GENOTYPE_SIZE = 64
-
-
-# --- RANDOM GENERATOR SETUP --- #
-#SEED = 42
-RNG = np.random.default_rng()#SEED)
+import controllers
+from settings import GENOTYPE_SIZE, NUM_BODY_MODULES
 
 # list of 3 alleles
 type Genome = List[np.float32]
@@ -41,6 +34,7 @@ class Individual:
     genome: Genome | None = None
     body_graph: nx.DiGraph | None = None
     controller: nn.Module | None = None
+
     n_cores: int | None = None
     n_bricks: int | None = None
     n_joints: int | None = None
@@ -51,17 +45,15 @@ class Individual:
 
 def init_individual(
     nde: NeuralDevelopmentalEncoding,
-    #id: int,
     ControllerClass: nn.Module,
-    num_modules: int = 30,
-    genome: Genome | None = None,
+    unsplit_genome: Genome,
 ) -> Individual:
 
-    # --- Genome setup ---
-    genome = genome or create_genome()
+    # split genome in three arrays
+    genome = [unsplit_genome[i*GENOTYPE_SIZE:(i+1)*GENOTYPE_SIZE] for i in range(3)]
 
     # --- Body generation ---
-    hpd = HighProbabilityDecoder(num_modules=num_modules)
+    hpd = HighProbabilityDecoder(num_modules=NUM_BODY_MODULES)
     body_graph = create_body_graph(nde, hpd, genome)
 
     # --- MuJoCo model construction ---
@@ -100,7 +92,6 @@ def init_individual(
         n_rots=n_rots,
         n_inputs=n_inputs,
         n_outputs=n_outputs,
-        fitness=0.0
     )
 
 def display_individual(individual):
@@ -112,43 +103,11 @@ def display_individual(individual):
         value = getattr(individual, name)
         print(f"{name:>12}: {value}")
 
-def create_genome():
-    type_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
-    conn_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
-    rot_p_genes = RNG.random(GENOTYPE_SIZE).astype(np.float32)
-
-    genotype = [
-        type_p_genes,
-        conn_p_genes,
-        rot_p_genes,
-    ]
-
-    return genotype
-
-def mutate_crossover_individuals(parents: List[Individual]):
-    '''
-    create a list of three children given list of
-    three parents
-    '''
-    revde = RevDE(scaling_factor=0.2)
-
-    grouped_genes = zip(*(p.genome for p in parents))
-
-    child_genomes = []
-    for geneset in grouped_genes:
-        mutated = revde.mutate(*geneset)
-
-        mutated = [g + np.random.normal(0, 0.05, size=g.shape) for g in mutated]
-        child_genomes.append(mutated)
-
-    child_genomes = [list(map(np.array, genes)) for genes in zip(*child_genomes)]
-
-    return child_genomes
 
 def create_body_graph(
         nde: NeuralDevelopmentalEncoding,
         hpd: HighProbabilityDecoder,
-        genome
+        genome: Genome
         ) -> nx.DiGraph:
     """
     NOTE: A graph is not yet a body
@@ -203,8 +162,9 @@ def store_individual_body_graph(individual: Individual) -> None:
     )
     
 def main():
-    i: Individual = Individual()
-    i.id = 5
+    nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
+    _init_individual = lambda **kwargs: init_individual(nde, controllers.lobotomizedCPG, **kwargs)
+    i = _init_individual()
 
     display_individual(i)
 

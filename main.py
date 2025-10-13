@@ -1,116 +1,110 @@
-## Standard library
 from pathlib import Path
-import pickle
-
+from typing import Callable
+from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import RNG
 from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
+from evotorch import Problem
 
+import torch
+from evotorch.algorithms import SNES
+from evotorch.logging import StdOutLogger
+
+## Local Libraries
+from NDE import load_or_init_nde
 import controllers
-## Local libraries
-
 from individual import (
+    Fitness,
+    Genome,
     Individual,
-    store_individual,
-    init_individual
+    init_individual,
+    store_individual
 )
 
-from population import (
-    Population,
-    evolve_population,
-    init_population,
-    load_population,
-    store_generation,
-    train_population
+from settings import (
+    BODY_POPULATION_SIZE,
+    BRAIN_POPULATION_SIZE,
+    CHECKPOINT_LOCATION,
+    GENOTYPE_SIZE,
+    NDE_LOCATION,
+    NUM_BODY_ACTORS,
+    NUM_BRAIN_ACTORS,
+    STATUS_LOCATION
 )
 
-from settings import BODY_POPULATION_SIZE, NUM_BODY_ACTORS, NUM_BODY_MODULES, DEFAULT_BODY_ITERATIONS
-from simulation import show_individual_in_window
+from simulation import show_individual_in_window, train_individual
+from status import Status, load_or_init_status, store_training_status
 
-from status import (
-    Status,
-    display_training_status,
-    load_training_status,
-    store_training_status
-)
+def store_generation(generation: int, solver: SNES, init_individual_function: Callable[[], Individual]) -> None:
+    pop = solver.population
+
+    checkpoint_dir = Path(f"{CHECKPOINT_LOCATION}/generation_{generation}")
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    for sol in pop:
+        # create Individual from genome using NDE?
+        genome = sol.values
+
+        # TODO check format
+        print(genome)
+        individual: Individual = init_individual_function(genome)
+        store_individual(checkpoint_dir, individual)
 
 
-def store_nde(location: str, nde: NeuralDevelopmentalEncoding) -> None:
-    with open(f"{location}.pkl", "wb") as f:
-        pickle.dump(nde, f)
-
-def load_nde(location: str) -> NeuralDevelopmentalEncoding | None:
-    path = Path(f"{location}.pkl")
-
-    if not path.exists():
-        return None
-    
-    with open(path, "rb") as f:
-        return pickle.load(f)
+def evaluate_genome(body_genome: Genome, init_individual_function: Callable[[], Individual]) -> Fitness:
+    individual: Individual = init_individual_function(body_genome)
+    genome_fitness: Fitness = train_individual(individual, BRAIN_POPULATION_SIZE, NUM_BRAIN_ACTORS)
+    return genome_fitness
 
 def main() -> None:
-    CHECKPOINT_LOCATION = "checkpoints/"
-    STATUS_LOCATION = "training_status.txt"
-    NDE_LOCATION = "NDE"
-
-    # Load or init NDE
-    nde: NeuralDevelopmentalEncoding | None = load_nde(NDE_LOCATION)
-    if nde == None:
-        print("CREATING NEW NDE")
-        nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_BODY_MODULES)
-        store_nde(NDE_LOCATION, nde)
+    nde: NeuralDevelopmentalEncoding = load_or_init_nde(NDE_LOCATION)
+    status: Status = load_or_init_status(STATUS_LOCATION)
 
     # centralized definition. we use one NDE and one controller type
     _init_individual = lambda **kwargs: init_individual(nde, controllers.lobotomizedCPG, **kwargs)
 
-    # Load or init training status
-    status: Status = load_training_status(STATUS_LOCATION)
-    if not status:
-        print("CREATING NEW STATUS")
-        status = Status(
-            desired_body_iterations=DEFAULT_BODY_ITERATIONS,
-            current_body_iteration=0,
-            checkpoint_dir=Path(CHECKPOINT_LOCATION)
-        )
-        store_training_status(status, STATUS_LOCATION)
+    '''
+    TODO
+        - check if we can load an initial population
+        - set initial bounds according to normal distribution?
+    '''
+    BODY_DIMENSION = 3 * GENOTYPE_SIZE
+    body_problem: Problem = Problem(
+        objective_sense="max",
+        objective_func=lambda genome: evaluate_genome(genome, _init_individual),
+        solution_length=BODY_DIMENSION,
+        initial_bounds=RNG.random(BODY_DIMENSION).astype(torch.float32),
+        dtype=torch.float32,
+        num_actors=NUM_BODY_ACTORS
+    )
 
-    # Load or initialize Population
-    population = load_population(status)
-    if not population:
-        print("CREATE NEW POPULATION")
-        population = init_population(BODY_POPULATION_SIZE, _init_individual)
-    assert len(population) % 6 == 0, "population should be multiple of 6"
+    body_solver = SNES(body_problem, popsize=BODY_POPULATION_SIZE, stdev_init=0.2)
+    StdOutLogger(body_solver)
 
-    ###### Main training loop ####################################
-    for _ in range(status.desired_body_iterations - status.current_body_iteration):
-        print(f"starting body generation {status.current_body_iteration}")
+    ## MAIN TRAINING LOOP
+    for generation in range(status.desired_body_iterations - status.current_body_iteration):
+        print(f"\n==== Generation {generation} ====")
 
-        store_generation(status, population)
-        population = evolve_population(population, _init_individual)
-        population = train_population(population, max_workers=NUM_BODY_ACTORS)
+        # TODO change
+        store_generation(generation, body_solver)
+        body_solver.run(1)
 
-        # display generation best fitness
-        fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
-        print(f"current best fitness: {fittest.fitness}")
-
-
-        display_training_status(status)
+        print(f"current best fitness: {body_solver.status["best_fitness"]}")
+        
         status.current_body_iteration += 1
         store_training_status(status, STATUS_LOCATION)
 
-    fittest: Individual = sorted(population, key=lambda ind: ind.fitness, reverse=True)[0]
+    fittest_genome: Genome = body_solver.status["best"]
+    
+    # TODO check if this format is correct
+    print(fittest_genome)
 
-    # pickle fittest individual
-    store_individual("baddest_bitch", fittest)
+    fittest_individual: Individual = _init_individual(fittest_genome)
 
     # open an ariel window displaying fittest
     try:
-        show_individual_in_window(fittest)
+        show_individual_in_window(fittest_individual)
     except Exception as e:
         print(f"[WARN] Could not open Ariel window for fittest individual: {e}")
 
-
-    # TODO video functionality
-
-    # some more visualisation?
     # show_xpos_history(tracker.history["xpos"][0])
 
 

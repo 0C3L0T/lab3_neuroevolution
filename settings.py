@@ -1,8 +1,14 @@
 
-import os
+# hardcoded locations for storing things
+CHECKPOINT_LOCATION = "checkpoints/"
+STATUS_LOCATION = "training_status.txt"
+NDE_LOCATION = "NDE"
+
+# used for black box, DON'T TOUCH
+GENOTYPE_SIZE = 64
 
 # the number of parts in a body
-NUM_BODY_MODULES = 10
+NUM_BODY_MODULES = 15
 
 # how many bodies to train at a time
 NUM_BODY_ACTORS = 2
