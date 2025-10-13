@@ -55,9 +55,36 @@ def show_individual_in_window(individual: Individual) -> None:
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
     model = world.spec.compile()
     data = mj.MjData(model)
+    
+    mujoco_type_to_find = mj.mjtObj.mjOBJ_GEOM
+    name_to_bind = "core"
+
+    # not sure what this does
+    tracker = Tracker(
+        mujoco_obj_to_find=mujoco_type_to_find,
+        name_to_bind=name_to_bind,
+    )
+
+    ctrl = Controller(
+        controller_callback_function=individual.controller.callback,
+        tracker=tracker,
+    )
+    
+    # Pass the model and data to the tracker
+    if ctrl.tracker is not None:
+        ctrl.tracker.setup(world.spec, data)
 
     # Reset state and time of simulation
     mj.mj_resetData(model, data)
+    
+    # Set the control callback function
+    # This is called every time step to get the next action.
+    args: list[Any] = []  # IF YOU NEED MORE ARGUMENTS ADD THEM HERE!
+    kwargs: dict[Any, Any] = {}  # IF YOU NEED MORE ARGUMENTS ADD THEM HERE!
+
+    mj.set_mjcb_control(
+        lambda m, d: ctrl.set_control(m, d, *args, **kwargs),
+    )
 
     viewer.launch(model=model, data=data)
 
@@ -113,7 +140,7 @@ def evaluate_individual(v: torch.Tensor, individual: Individual) -> Fitness:
         tracker.history.clear()
 
     average_fitness = total_fitness / 3
-    return average_fitness
+    return -average_fitness
 
 def train_individual(
         individual: Individual,
