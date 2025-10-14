@@ -87,6 +87,7 @@ def main() -> None:
     for generation in range(DEFAULT_BODY_ITERATIONS):
         print(f"\n==== Generation {generation} ====")
         body_solver.run(1)
+        body_solver.save(CHECKPOINT_PATH)
         store_generation(generation, body_solver, _init_individual)
         
     print("END OF TRAINING")
