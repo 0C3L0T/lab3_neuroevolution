@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
-from typing import Callable
+import pickle
+from typing import Callable, List
 from ariel.ec.genotypes.nde.nde import NeuralDevelopmentalEncoding
 from evotorch import Problem, Solution
 
@@ -56,26 +58,28 @@ def main() -> None:
     # centralized definition. we use one NDE and one controller type
     _init_individual = lambda genome: init_individual(nde, controllers.lobotomizedCPG, genome)
 
-    '''
-    TODO
-        - check if we can load an initial population
-        - set initial bounds according to normal distribution?
-    '''
-    BODY_DIMENSION = 3 * GENOTYPE_SIZE
-    body_problem: Problem = Problem(
-        objective_sense="max",
-        objective_func=lambda genome: evaluate_genome(genome, _init_individual),
-        solution_length=BODY_DIMENSION,
-        initial_bounds=(0, 1),
-        dtype=torch.float32,
-        num_actors=NUM_BODY_ACTORS
-    )
+    CHECKPOINT_PATH = "save_state.pt"
+    if os.path.exists(CHECKPOINT_PATH):
+        print(f"Resuming solver from {CHECKPOINT_PATH}")
+        body_solver = SNES.load(CHECKPOINT_PATH)
+    else:
+        print("Starting new SNES run")
+        BODY_DIMENSION = 3 * GENOTYPE_SIZE
+        body_problem: Problem = Problem(
+            objective_sense="max",
+            objective_func=lambda genome: evaluate_genome(genome, _init_individual),
+            solution_length=BODY_DIMENSION,
+            initial_bounds=(0, 1),
+            dtype=torch.float32,
+            num_actors=NUM_BODY_ACTORS
+        )
 
-    body_solver = SNES(
-        problem=body_problem,
-        popsize=BODY_POPULATION_SIZE,
-        stdev_init=0.2
-    )
+        body_solver = SNES(
+            problem=body_problem,
+            popsize=BODY_POPULATION_SIZE,
+            stdev_init=0.2
+        )
+    
 
     StdOutLogger(body_solver)
 
