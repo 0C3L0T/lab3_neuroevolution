@@ -43,6 +43,7 @@ class Individual:
     n_inputs: int | None = None
     n_outputs: int | None = None
     fitness: float = 0
+    weights = None
 
 def init_individual(
     nde: NeuralDevelopmentalEncoding,

@@ -183,7 +183,13 @@ def train_individual(
     n_iterations = 20
     searcher.run(n_iterations)
 
+    best = searcher.status["best"]
+    print(best.values)
+
     best_fitness = searcher.status["best_eval"]
+    individual.fitness = 0.0 if aborted else best_fitness
+    individual.weights = best.values
+    print(individual.weights)
 
     del searcher
     del problem
@@ -206,7 +212,7 @@ def show_individual_in_window(individual: Individual) -> None:
 
     # Spawn robot in the world
     # Check docstring for spawn conditions
-    world.spawn(core.spec, position=BEGIN_SPAWN_POS)
+    world.spawn(core.spec, position=MIDDLE_SPAWN_POS)
 
     # Generate the model and data
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
