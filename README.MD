@@ -15,8 +15,8 @@ cd ariel
 uv add evotorch
 ```
 
-not sure what else to put here, maybe a TODO?
-
 TODO (in no particular order):
-- [ ] Individual evaluation mechanism (setting up simulation, checking for abortions, getting fitness)
-- [ ] robot body Operators (mutation, Xover)
+- [ ] store fittest individual of every generation
+- [ ] store Problem instance for pause/resume functionality
+- [ ] render video of best individual of every generation
+- [ ] improved abortion logic: just kill everything that doesn't move?
